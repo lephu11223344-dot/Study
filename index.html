@@ -120,6 +120,33 @@
                 <div class="reader-content-body" id="reader-content">
                     <!-- Full Article Body Rendered here -->
                 </div>
+
+                <!-- ========== CHỨC NĂNG BÌNH LUẬN (COMMENTS) ========== -->
+                <section class="comments-section">
+                    <div class="comments-header">
+                        <h3>💬 Bình luận <span id="comment-count-badge">(0)</span></h3>
+                    </div>
+
+                    <!-- Form nhập bình luận mới -->
+                    <div class="add-comment-box">
+                        <div class="comment-input-row">
+                            <input type="text" id="comment-author-name" placeholder="Tên của bạn (mặc định: Khách)..." maxlength="40">
+                        </div>
+                        <div class="comment-input-row">
+                            <textarea id="comment-content-input" rows="3" placeholder="Viết bình luận suy nghĩ của bạn về bài viết này..."></textarea>
+                        </div>
+                        <div class="comment-submit-row">
+                            <button type="button" class="btn-primary-sm" id="btn-submit-comment">
+                                <span>Gửi bình luận</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách bình luận -->
+                    <div class="comments-list" id="comments-list">
+                        <!-- Comments dynamically rendered by JS -->
+                    </div>
+                </section>
             </article>
         </div>
     </div>
@@ -177,7 +204,38 @@
 
                 <div class="form-group">
                     <label for="post-content">Nội dung bài viết đầy đủ</label>
-                    <textarea id="post-content" rows="10" placeholder="Viết toàn bộ nội dung của bạn ở đây...&#10;&#10;Hỗ trợ Markdown:&#10;**in đậm**, *in nghiêng*&#10;- Danh sách bài viết&#10;`code`"></textarea>
+                    <div class="word-editor-toolbar" id="editor-toolbar">
+                        <!-- Chữ in hoa / In thường / Title Case -->
+                        <div class="toolbar-group">
+                            <button type="button" class="tb-btn" data-action="uppercase" title="IN HOA (UPPERCASE)">AA</button>
+                            <button type="button" class="tb-btn" data-action="lowercase" title="in thường (lowercase)">aa</button>
+                            <button type="button" class="tb-btn" data-action="titlecase" title="In Hoa Đầu Từ (Title Case)">Aa</button>
+                        </div>
+                        <span class="tb-divider"></span>
+                        <!-- Định dạng kiểu chữ: Bold, Italic, Underline, Strikethrough -->
+                        <div class="toolbar-group">
+                            <button type="button" class="tb-btn tb-bold" data-action="bold" title="In đậm (Ctrl+B)"><b>B</b></button>
+                            <button type="button" class="tb-btn tb-italic" data-action="italic" title="In nghiêng (Ctrl+I)"><i>I</i></button>
+                            <button type="button" class="tb-btn tb-underline" data-action="underline" title="Gạch chân (Ctrl+U)"><u>U</u></button>
+                            <button type="button" class="tb-btn tb-strike" data-action="strikethrough" title="Gạch ngang"><s>S</s></button>
+                        </div>
+                        <span class="tb-divider"></span>
+                        <!-- Tiêu đề Header -->
+                        <div class="toolbar-group">
+                            <button type="button" class="tb-btn" data-action="h1" title="Tiêu đề 1 (Lớn)">H1</button>
+                            <button type="button" class="tb-btn" data-action="h2" title="Tiêu đề 2 (Vừa)">H2</button>
+                            <button type="button" class="tb-btn" data-action="h3" title="Tiêu đề 3 (Nhỏ)">H3</button>
+                        </div>
+                        <span class="tb-divider"></span>
+                        <!-- Danh sách & Khối -->
+                        <div class="toolbar-group">
+                            <button type="button" class="tb-btn" data-action="ul" title="Danh sách chấm (Bullet list)">• List</button>
+                            <button type="button" class="tb-btn" data-action="ol" title="Danh sách số (Numbered list)">1. List</button>
+                            <button type="button" class="tb-btn" data-action="quote" title="Trích dẫn">“ ”</button>
+                            <button type="button" class="tb-btn" data-action="code" title="Khối Code">&lt;/&gt;</button>
+                        </div>
+                    </div>
+                    <textarea id="post-content" rows="12" placeholder="Viết toàn bộ nội dung của bạn ở đây... Sử dụng thanh công cụ phía trên để chỉnh định dạng chữ."></textarea>
                 </div>
 
                 <div class="form-group">

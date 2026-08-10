@@ -24,6 +24,7 @@
     // State
     let categories = [];
     let articles = [];
+    let comments = [];
     let currentCategoryId = null;
     let currentArticleId = null;
     let editingArticleId = null;
@@ -69,18 +70,28 @@
         html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
         // Inline code
         html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Restore Underline
+        html = html.replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/gi, '<u>$1</u>');
+        // Strikethrough
+        html = html.replace(/~~(.*?)~~/g, '<del>$1</del>');
         // Bold
         html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         // Italic
         html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        // Blockquote
+        html = html.replace(/^&gt; (.*$)/gim, '<blockquote>$1</blockquote>');
         // Headers
         html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
         html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
         html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+        // Bullet list
+        html = html.replace(/^- (.*$)/gim, '<li>$1</li>');
+        // Numbered list
+        html = html.replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
         // Line breaks to paragraphs
         const paragraphs = html.split(/\n\n+/);
         return paragraphs.map(p => {
-            if (p.startsWith('<h') || p.startsWith('<pre')) return p;
+            if (p.startsWith('<h') || p.startsWith('<pre') || p.startsWith('<block') || p.startsWith('<li')) return p;
             return `<p>${p.replace(/\n/g, '<br>')}</p>`;
         }).join('');
     }
@@ -127,9 +138,21 @@
         try { localStorage.setItem('emir_articles', JSON.stringify(arts)); } catch {}
     }
 
+    function getLocalComments() {
+        try {
+            const raw = localStorage.getItem('emir_comments');
+            return raw ? JSON.parse(raw) : [];
+        } catch { return []; }
+    }
+
+    function saveLocalComments(cmts) {
+        try { localStorage.setItem('emir_comments', JSON.stringify(cmts)); } catch {}
+    }
+
     async function fetchAllData() {
         categories = getLocalCategories();
         articles = getLocalArticles();
+        comments = getLocalComments();
 
         try {
             const { data: catData, error: catErr } = await supabase.from('topics').select('*');
@@ -147,6 +170,12 @@
             if (!artErr && artData && artData.length > 0) {
                 articles = artData;
                 saveLocalArticles(articles);
+            }
+
+            const { data: cmtData, error: cmtErr } = await supabase.from('comments').select('*');
+            if (!cmtErr && cmtData && cmtData.length > 0) {
+                comments = cmtData;
+                saveLocalComments(comments);
             }
         } catch (e) {
             console.warn('Supabase fetch exception, using local fallback:', e);
@@ -261,7 +290,119 @@
         // Full Rendered Content
         $('#reader-content').innerHTML = renderMarkdown(art.content || 'Nội dung bài viết trống.');
 
+        // Render Comments for this article
+        renderArticleComments(artId);
+
         showView('view-article-detail');
+    }
+
+    // ============================================================
+    //  COMMENT SYSTEM LOGIC
+    // ============================================================
+
+    function renderArticleComments(artId) {
+        const filteredComments = comments.filter(c => String(c.entry_id) === String(artId) || String(c.article_id) === String(artId));
+        
+        const countBadge = $('#comment-count-badge');
+        if (countBadge) countBadge.textContent = `(${filteredComments.length})`;
+
+        const container = $('#comments-list');
+        if (!container) return;
+
+        if (filteredComments.length === 0) {
+            container.innerHTML = `<div class="empty-comments">💬 Chưa có bình luận nào. Hãy là người đầu tiên bình luận!</div>`;
+            return;
+        }
+
+        container.innerHTML = filteredComments.map(cmt => {
+            const author = cmt.author_name || 'Khách';
+            const initial = author.charAt(0).toUpperCase();
+            return `
+                <div class="comment-card" data-id="${cmt.id}">
+                    <div class="comment-avatar">${escapeHtml(initial)}</div>
+                    <div class="comment-main">
+                        <div class="comment-top-meta">
+                            <span class="comment-author">${escapeHtml(author)}</span>
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <span class="comment-date">${formatDate(cmt.created_at)}</span>
+                                <button type="button" class="btn-delete-comment" data-id="${cmt.id}" title="Xóa bình luận">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="comment-body">${escapeHtml(cmt.content)}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.querySelectorAll('.btn-delete-comment').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteComment(btn.dataset.id);
+            });
+        });
+    }
+
+    async function submitComment() {
+        if (!currentArticleId) return;
+
+        const authorInput = $('#comment-author-name');
+        const contentInput = $('#comment-content-input');
+
+        const author_name = authorInput.value.trim() || 'Khách';
+        const content = contentInput.value.trim();
+
+        if (!content) {
+            showToast('Vui lòng nhập nội dung bình luận!');
+            return;
+        }
+
+        const newComment = {
+            id: 'cmt-' + Date.now(),
+            entry_id: currentArticleId,
+            article_id: currentArticleId,
+            author_name,
+            content,
+            created_at: new Date().toISOString()
+        };
+
+        comments.unshift(newComment);
+        saveLocalComments(comments);
+
+        try {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentArticleId);
+            if (isUuid) {
+                const { data } = await supabase.from('comments').insert([{
+                    entry_id: currentArticleId,
+                    author_name,
+                    content
+                }]).select();
+                if (data && data[0]) {
+                    newComment.id = data[0].id;
+                    saveLocalComments(comments);
+                }
+            }
+        } catch (e) {
+            console.warn('Supabase comment insert exception:', e);
+        }
+
+        contentInput.value = '';
+        renderArticleComments(currentArticleId);
+        showToast('Đã gửi bình luận thành công!');
+    }
+
+    async function deleteComment(cmtId) {
+        comments = comments.filter(c => String(c.id) !== String(cmtId));
+        saveLocalComments(comments);
+
+        try {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cmtId);
+            if (isUuid) {
+                await supabase.from('comments').delete().eq('id', cmtId);
+            }
+        } catch (e) {}
+
+        renderArticleComments(currentArticleId);
+        showToast('Đã xóa bình luận!');
     }
 
     // ============================================================
@@ -718,6 +859,101 @@
     $('#btn-back-cat-articles')?.addEventListener('click', () => {
         openCategoryView(currentCategoryId);
     });
+
+    // ============================================================
+    //  WORD-STYLE EDITOR TOOLBAR & TEXT FORMATTING
+    // ============================================================
+
+    function applyTextFormat(action) {
+        const textarea = $('#post-content');
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selectedText = textarea.value.substring(start, end);
+        let replacement = '';
+        let cursorOffset = 0;
+
+        switch (action) {
+            case 'uppercase':
+                replacement = selectedText ? selectedText.toUpperCase() : '';
+                break;
+            case 'lowercase':
+                replacement = selectedText ? selectedText.toLowerCase() : '';
+                break;
+            case 'titlecase':
+                replacement = selectedText ? selectedText.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()) : '';
+                break;
+            case 'bold':
+                replacement = selectedText ? `**${selectedText}**` : '**In đậm**';
+                cursorOffset = selectedText ? 0 : -2;
+                break;
+            case 'italic':
+                replacement = selectedText ? `*${selectedText}*` : '*In nghiêng*';
+                cursorOffset = selectedText ? 0 : -1;
+                break;
+            case 'underline':
+                replacement = selectedText ? `<u>${selectedText}</u>` : '<u>Gạch chân</u>';
+                cursorOffset = selectedText ? 0 : -4;
+                break;
+            case 'strikethrough':
+                replacement = selectedText ? `~~${selectedText}~~` : '~~Gạch ngang~~';
+                cursorOffset = selectedText ? 0 : -2;
+                break;
+            case 'h1':
+                replacement = selectedText ? `# ${selectedText}` : '# Tiêu đề 1\n';
+                break;
+            case 'h2':
+                replacement = selectedText ? `## ${selectedText}` : '## Tiêu đề 2\n';
+                break;
+            case 'h3':
+                replacement = selectedText ? `### ${selectedText}` : '### Tiêu đề 3\n';
+                break;
+            case 'ul':
+                replacement = selectedText ? selectedText.split('\n').map(l => `- ${l}`).join('\n') : '- Danh sách\n';
+                break;
+            case 'ol':
+                replacement = selectedText ? selectedText.split('\n').map((l, i) => `${i+1}. ${l}`).join('\n') : '1. Danh sách\n';
+                break;
+            case 'quote':
+                replacement = selectedText ? `> ${selectedText}` : '> Trích dẫn\n';
+                break;
+            case 'code':
+                replacement = selectedText ? `\`\`\`\n${selectedText}\n\`\`\`` : '```\n// Code ở đây\n```';
+                break;
+        }
+
+        if (replacement) {
+            textarea.setRangeText(replacement, start, end, 'select');
+            textarea.focus();
+            if (cursorOffset !== 0) {
+                const newPos = start + replacement.length + cursorOffset;
+                textarea.setSelectionRange(newPos, newPos);
+            }
+        }
+    }
+
+    // Attach Toolbar Button Click Handlers
+    $$('#editor-toolbar .tb-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const action = btn.dataset.action;
+            if (action) applyTextFormat(action);
+        });
+    });
+
+    // Keyboard Shortcuts inside Editor Textarea (Ctrl+B, Ctrl+I, Ctrl+U)
+    $('#post-content')?.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            const key = e.key.toLowerCase();
+            if (key === 'b') { e.preventDefault(); applyTextFormat('bold'); }
+            else if (key === 'i') { e.preventDefault(); applyTextFormat('italic'); }
+            else if (key === 'u') { e.preventDefault(); applyTextFormat('underline'); }
+        }
+    });
+
+    // Comment Submit Button Handler
+    $('#btn-submit-comment')?.addEventListener('click', submitComment);
 
     // Search input inside Category list
     let searchDebounce = null;
