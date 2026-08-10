@@ -3,65 +3,264 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="KNOWLEDGE - Phân loại bài viết theo thể loại & đọc chi tiết">
+    <meta name="description" content="KNOWLEDGE - Tạp chí & Không gian lưu trữ tri thức hiện đại 2026">
     <title>KNOWLEDGE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Background Organic Accents -->
+    <!-- Reading Progress Bar -->
+    <div id="reading-progress-bar" class="reading-progress-bar"></div>
+
+    <!-- Organic Ambient Background Shapes -->
     <div class="bg-shapes">
         <div class="shape shape-top-right"></div>
         <div class="shape shape-bottom-left"></div>
+        <div class="shape shape-center-glow"></div>
     </div>
 
+    <!-- Main Navigation Bar with Both Top 5 Dropdowns on Left -->
+    <header class="main-nav-bar">
+        <div class="nav-content">
+            <!-- Left Group: Top 5 Chủ đề + Top 5 Xem nhiều nhất Side-by-Side -->
+            <div class="nav-left-group" style="display: none;">
+                <div class="nav-dropdown-wrapper" id="categories-section">
+                    <button type="button" class="nav-pill-btn nav-dropdown-trigger" id="toggle-top-cats" title="Bấm để xem Top 5 Chủ đề">
+                        <span>🔥 Top 5 Chủ đề</span>
+                    </button>
+                    <div class="nav-dropdown-menu" id="dropdown-top-cats">
+                        <div class="top-categories-list" id="categories-grid">
+                            <!-- Top 5 Categories rendered dynamically by JS -->
+                        </div>
+                        <button type="button" class="btn-link-all-cats" id="btn-see-all-cats-sidebar">
+                            <span>Xem tất cả chủ đề</span> ➔
+                        </button>
+                    </div>
+                </div>
+
+                <div class="nav-dropdown-wrapper top-views-box">
+                    <button type="button" class="nav-pill-btn nav-dropdown-trigger" id="toggle-top-views" title="Bấm để xem Top 5 Xem nhiều nhất">
+                        <span>👁️ Top 5 Xem nhiều nhất</span>
+                    </button>
+                    <div class="nav-dropdown-menu" id="dropdown-top-views">
+                        <div class="top-views-list" id="top-views-container">
+                            <!-- Top 5 Most Viewed Articles rendered dynamically by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Center Group: Navigation Menu -->
+            <div class="nav-center-menu">
+                <button class="nav-menu-item active" id="nav-item-landing">Giới thiệu</button>
+                <button class="nav-menu-item" id="nav-item-home">Trang chủ</button>
+                <button class="nav-menu-item" id="nav-item-categories">Chủ đề</button>
+            </div>
+
+            <!-- Right Group: Viết bài mới Action Button -->
+            <div class="nav-right-group" style="display: none;">
+                <button class="btn-create-post-nav" id="btn-create-post">
+                    <span class="plus-icon">+</span>
+                    <span>Viết bài mới</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
     <div class="app-container">
-        <!-- ========== TRANG 1: TRANG CHỦ THỂ LOẠI (MATCH SCREENSHOT 100%) ========== -->
-        <div id="view-home" class="page-view active">
+        <!-- ========== TRANG 0: LANDING PAGE HIỆN ĐẠI BENTO GRID 2026 ========== -->
+        <div id="view-landing" class="page-view active">
+            <!-- Modern Hero Section -->
+            <section class="modern-landing-hero">
+                <h1 class="modern-hero-headline">
+                    Giao Diện Tương Lai.<br>
+                    <span class="hero-gradient-text">Không Gian Tri Thức Không Giới Hạn.</span>
+                </h1>
+
+                <p class="modern-hero-subtext">
+                    Lưu trữ bài viết, sáng tạo nội dung chuyên sâu và kết nối cộng đồng tri thức với trải nghiệm đọc & viết mượt mà tuyệt đối.
+                </p>
+
+                <!-- Modern Dual CTAs -->
+                <div class="modern-cta-row">
+                    <button type="button" class="btn-modern-dark" id="btn-enter-app-hero">
+                        <span>Bắt đầu khám phá ngay</span>
+                        <span class="arrow-icon">➔</span>
+                    </button>
+                    <button type="button" class="btn-modern-glass" id="btn-create-post-landing">
+                        <span class="plus-icon">+</span>
+                        <span>Tạo bài viết mới</span>
+                    </button>
+                </div>
+
+                <!-- Modern Interactive App Showcase Frame -->
+                <div class="modern-app-frame">
+                    <div class="frame-top-bar">
+                        <div class="frame-window-controls">
+                            <span class="control-dot close"></span>
+                            <span class="control-dot minimize"></span>
+                            <span class="control-dot expand"></span>
+                        </div>
+                        <div class="frame-tab-switcher">
+                            <span class="frame-tab active">🌐 knowledge-journal-2026.app</span>
+                        </div>
+                        <div class="frame-status-badge">
+                            <span class="live-pulse-dot"></span>
+                            <span>Realtime Sync</span>
+                        </div>
+                    </div>
+                    
+                    <div class="frame-inner-content">
+                        <div class="mockup-hero-card">
+                            <div class="mockup-header-meta">
+                                <span class="mockup-pill-badge">🔥 TẠP CHÍ NỔI BẬT</span>
+                                <span class="mockup-pill-cat">🧠 Triết Học & Cuộc Sống</span>
+                                <span class="mockup-read-time">⏱️ 3 phút đọc</span>
+                            </div>
+                            <h2>Chủ Nghĩa Hư Vô Nihilism & Hành Trình Kiến Tạo Ý Nghĩa Cuộc Sống 2026</h2>
+                            <p>Khám phá triết lý hiện sinh, vượt qua sự trống rỗng để tìm thấy mục đích sống chân thực giữa kỷ nguyên công nghệ phát triển vượt bậc...</p>
+                            <div class="mockup-bottom-meta">
+                                <div class="mockup-author-info">
+                                    <div class="author-avatar">K</div>
+                                    <span class="author-name">Blogger Knowledge</span>
+                                </div>
+                                <div class="mockup-interaction-badges">
+                                    <span class="badge-item">❤️ 128 Thích</span>
+                                    <span class="badge-item">💬 42 Bình luận</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Metrics Bar -->
+                <div class="modern-metrics-bar">
+                    <div class="metric-box">
+                        <div class="metric-number" id="landing-stat-articles">0</div>
+                        <div class="metric-label">Bài viết tri thức</div>
+                    </div>
+                    <div class="metric-divider"></div>
+                    <div class="metric-box">
+                        <div class="metric-number" id="landing-stat-categories">0</div>
+                        <div class="metric-label">Chủ đề phong phú</div>
+                    </div>
+                    <div class="metric-divider"></div>
+                    <div class="metric-box">
+                        <div class="metric-number" id="landing-stat-comments">0</div>
+                        <div class="metric-label">Bình luận tương tác</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ========== TRANG 1: TRANG CHỦ CHUYÊN NGHIỆP (MAGAZINE BLOGGER HOME) ========== -->
+        <div id="view-home" class="page-view">
+            <!-- Hero Banner -->
             <header class="hero-center">
                 <h1 class="hero-giant-title">
-                    Best<br>
-                    <span class="highlight-dark">Knowledge</span><br>
-                    in <span class="highlight-sage">2026</span>
+                    Best <span class="highlight-dark">Knowledge</span> in <span class="highlight-sage">2026</span>
                 </h1>
 
                 <div class="subtitle-divider">
                     <span class="div-line"></span>
-                    <span class="div-text">Simple picks by category</span>
+                    <span class="div-text">Khám phá tri thức theo chủ đề</span>
                     <span class="div-line"></span>
                 </div>
             </header>
 
-            <!-- Grid nút Thể loại (Pill Buttons Grid) -->
-            <div class="categories-pill-grid" id="categories-grid">
-                <!-- Rendered dynamically by JS -->
+            <!-- Thống kê nhanh (Stats Bar) -->
+            <div class="blog-stats-bar">
+                <div class="stat-card">
+                    <span class="stat-num" id="stat-total-articles">0</span>
+                    <span class="stat-label">Bài viết</span>
+                </div>
+                <span class="stat-divider"></span>
+                <div class="stat-card">
+                    <span class="stat-num" id="stat-total-categories">0</span>
+                    <span class="stat-label">Chủ đề</span>
+                </div>
+                <span class="stat-divider"></span>
+                <div class="stat-card">
+                    <span class="stat-num" id="stat-total-comments">0</span>
+                    <span class="stat-label">Bình luận</span>
+                </div>
             </div>
 
-            <!-- Global Action Bar -->
-            <div class="home-bottom-actions">
-                <button class="btn-create-post" id="btn-create-post">
-                    <span class="btn-icon-plus">+</span>
-                    <span>Create new post</span>
+            <!-- Bài viết tiêu điểm (Spotlight Featured Article) -->
+            <div id="featured-post-container" class="featured-spotlight-container" style="display:none; margin-top: 2.5rem;">
+                <!-- Featured Article Rendered Dynamically -->
+            </div>
+
+            <!-- Tất cả bài viết mới nhất (Recent Articles Feed) -->
+            <div class="section-header-row margin-top-lg">
+                <h2>Bài viết gần đây</h2>
+                <div class="search-input-box home-search">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-home-input" placeholder="Tìm kiếm tất cả bài viết...">
+                </div>
+            </div>
+
+            <main class="articles-grid" id="home-articles-grid">
+                <!-- All posts rendered here -->
+            </main>
+
+
+        </div>
+
+        <!-- ========== TRANG TẤT CẢ CHỦ ĐỀ (DEDICATED ALL CATEGORIES VIEW) ========== -->
+        <div id="view-all-categories" class="page-view">
+            <header class="nav-bar-header">
+                <button class="btn-nav-back" id="btn-back-home-from-all-cats">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Trang chủ</span>
                 </button>
+
+                <div class="category-header-title">
+                    <span class="cat-icon-badge">📂</span>
+                    <h2>Khám Phá Tất Cả Chủ Đề</h2>
+                </div>
+
+                <div class="category-header-actions">
+                    <button class="btn-create-post-nav" id="btn-add-cat-from-all">
+                        <span class="plus-icon">+</span>
+                        <span>Tạo chủ đề mới</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Search & Subtitle Section -->
+            <div class="categories-search-section">
+                <p class="categories-subhead">Không gian tổng hợp và phân loại toàn bộ kiến thức theo chủ đề chuyên sâu</p>
+                <div class="search-category-row">
+                    <div class="search-input-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="search-all-cats-input" placeholder="Nhập tên chủ đề cần tìm kiếm...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categories Grid -->
+            <div class="all-categories-grid" id="all-categories-full-grid">
+                <!-- All category cards rendered dynamically by JS -->
             </div>
         </div>
 
-        <!-- ========== TRANG 2: DANH SÁCH BÀI VIẾT THEO THỂ LOẠI ========== -->
+        <!-- ========== TRANG 2: DANH SÁCH BÀI VIẾT THEO CHỦ ĐỀ ========== -->
         <div id="view-category-articles" class="page-view">
             <header class="nav-bar-header">
                 <button class="btn-nav-back" id="btn-back-home">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
-                    <span>Home</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Trang chủ</span>
                 </button>
-                <div class="category-header-title clickable" id="cat-header-title-btn" title="Click to edit or delete category">
+                <div class="category-header-title clickable" id="cat-header-title-btn" title="Bấm để chỉnh sửa hoặc xóa chủ đề">
                     <span class="cat-icon-badge" id="cat-badge-emoji">📖</span>
-                    <h2 id="cat-title-name">Category Title</h2>
-                    <span class="cat-edit-indicator" title="Click to manage category">⚙️</span>
+                    <h2 id="cat-title-name">Chủ đề</h2>
+                    <span class="cat-edit-indicator" title="Bấm để quản lý chủ đề">⚙️</span>
                 </div>
                 <div class="category-header-actions">
-                    <button class="btn-plus-action" id="btn-add-article-in-cat" title="Create new post">
+                    <button class="btn-plus-action" id="btn-add-article-in-cat" title="Tạo bài viết mới trong chủ đề này">
                         <span class="plus-icon">+</span>
                     </button>
                 </div>
@@ -70,7 +269,7 @@
             <div class="search-category-row">
                 <div class="search-input-box">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="search-cat-input" placeholder="Search posts in this category...">
+                    <input type="text" id="search-cat-input" placeholder="Tìm bài viết trong chủ đề này...">
                 </div>
             </div>
 
@@ -80,9 +279,9 @@
 
             <div class="empty-articles-state" id="empty-articles" style="display:none;">
                 <div class="empty-emoji">📄</div>
-                <h3>No posts in this category yet</h3>
-                <p>Create your first post now!</p>
-                <button class="btn-primary" id="btn-add-first-article">+ Create new post</button>
+                <h3>Chưa có bài viết nào trong chủ đề này</h3>
+                <p>Hãy là người đầu tiên tạo bài viết mới!</p>
+                <button class="btn-primary" id="btn-add-first-article">+ Tạo bài viết mới</button>
             </div>
         </div>
 
@@ -90,10 +289,14 @@
         <div id="view-article-detail" class="page-view">
             <header class="nav-bar-header">
                 <button class="btn-nav-back" id="btn-back-cat-articles">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
-                    <span>Back</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Quay lại</span>
                 </button>
                 <div class="article-actions-top">
+                    <button class="btn-action-icon" id="btn-pin-current-article" title="Đánh dấu bài viết nổi bật">
+                        <span>🔥</span>
+                        <span id="pin-btn-text">Nổi bật</span>
+                    </button>
                     <button class="btn-action-icon" id="btn-edit-current-article" title="Chỉnh sửa bài viết">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                         <span>Sửa</span>
@@ -109,9 +312,24 @@
                 <div class="reader-meta-bar">
                     <span class="cat-pill-badge" id="reader-cat-badge">Thể loại</span>
                     <span class="reader-date" id="reader-date">10/08/2026</span>
+                    <span class="read-time-chip" id="reader-read-time">⏱️ 3 phút đọc</span>
                 </div>
 
                 <h1 class="reader-title" id="reader-title">Tiêu đề bài viết đầy đủ</h1>
+
+                <div class="reader-author-bar">
+                    <div class="author-avatar-sm">K</div>
+                    <div class="author-info-text">
+                        <span class="author-name">Blogger Knowledge</span>
+                        <span class="author-role">Tác giả</span>
+                    </div>
+                    <div class="reader-actions-right">
+                        <button type="button" class="btn-like-badge" id="btn-like-article">
+                            <span class="like-icon">❤️</span>
+                            <span id="like-count">0</span>
+                        </button>
+                    </div>
+                </div>
 
                 <div class="reader-tags-row" id="reader-tags">
                     <!-- Tag chips rendered here -->
@@ -151,7 +369,7 @@
         </div>
     </div>
 
-    <!-- ========== MODAL: TẠO / SỬA BÀI VIẾT MỚI (VỚI TỰ CHỌN / THÊM THỂ LOẠI) ========== -->
+    <!-- ========== MODAL: TẠO / SỬA BÀI VIẾT MỚI (VỚI THANH CÔNG CỤ WORD) ========== -->
     <div id="modal-article" class="modal-overlay">
         <div class="modal modal-lg">
             <div class="modal-header">

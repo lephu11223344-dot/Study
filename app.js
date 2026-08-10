@@ -1,5 +1,5 @@
 /* ============================================
-   EMIR KNOWLEDGE LAB — Application Logic
+   KNOWLEDGE JOURNAL — Application Logic
    ============================================ */
 
 (() => {
@@ -25,6 +25,8 @@
     let categories = [];
     let articles = [];
     let comments = [];
+    let likesMap = {};
+    let viewsMap = {};
     let currentCategoryId = null;
     let currentArticleId = null;
     let editingArticleId = null;
@@ -35,21 +37,28 @@
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
 
+    const viewLanding = $('#view-landing');
     const viewHome = $('#view-home');
     const viewCategoryArticles = $('#view-category-articles');
     const viewArticleDetail = $('#view-article-detail');
+    const viewAllCategories = $('#view-all-categories');
 
     const categoriesGrid = $('#categories-grid');
     const articlesGrid = $('#articles-grid');
+    const homeArticlesGrid = $('#home-articles-grid');
     const emptyArticles = $('#empty-articles');
+
     const searchCatInput = $('#search-cat-input');
+    const searchHomeInput = $('#search-home-input');
 
     const modalArticle = $('#modal-article');
     const modalConfirm = $('#modal-confirm');
     const modalEditCat = $('#modal-edit-cat');
     const modalCatManage = $('#modal-cat-manage');
 
-    // Utility
+    const progressBar = $('#reading-progress-bar');
+
+    // Utility Functions
     function formatDate(ts) {
         if (!ts) ts = Date.now();
         const d = new Date(ts);
@@ -61,6 +70,12 @@
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    function calcReadTime(text) {
+        if (!text) return 1;
+        const words = text.trim().split(/\s+/).filter(Boolean).length;
+        return Math.max(1, Math.ceil(words / 180));
     }
 
     function renderMarkdown(content) {
@@ -98,6 +113,7 @@
 
     function showToast(msg) {
         const container = $('#toast-container');
+        if (!container) return;
         const toast = document.createElement('div');
         toast.className = 'toast';
         toast.textContent = msg;
@@ -107,10 +123,50 @@
 
     // Navigation Switcher
     function showView(viewId) {
-        [viewHome, viewCategoryArticles, viewArticleDetail].forEach(v => v.classList.remove('active'));
-        $(`#${viewId}`).classList.add('active');
+        [viewLanding, viewHome, viewCategoryArticles, viewArticleDetail, viewAllCategories].forEach(v => v?.classList.remove('active'));
+        $(`#${viewId}`)?.classList.add('active');
         window.scrollTo(0, 0);
+
+        // Control visibility of .nav-left-group & .nav-right-group (Only visible on Trang chủ)
+        const navLeftGroup = $('.nav-left-group');
+        const navRightGroup = $('.nav-right-group');
+        if (navLeftGroup) {
+            navLeftGroup.style.display = (viewId === 'view-home') ? 'flex' : 'none';
+        }
+        if (navRightGroup) {
+            navRightGroup.style.display = (viewId === 'view-home') ? 'flex' : 'none';
+        }
+
+        // Update nav items active state
+        if (viewId === 'view-landing') {
+            $('#nav-item-landing')?.classList.add('active');
+            $('#nav-item-home')?.classList.remove('active');
+            $('#nav-item-categories')?.classList.remove('active');
+        } else if (viewId === 'view-home') {
+            $('#nav-item-landing')?.classList.remove('active');
+            $('#nav-item-home')?.classList.add('active');
+            $('#nav-item-categories')?.classList.remove('active');
+        } else if (viewId === 'view-all-categories') {
+            $('#nav-item-landing')?.classList.remove('active');
+            $('#nav-item-home')?.classList.remove('active');
+            $('#nav-item-categories')?.classList.add('active');
+        } else {
+            $('#nav-item-landing')?.classList.remove('active');
+            $('#nav-item-home')?.classList.remove('active');
+            $('#nav-item-categories')?.classList.remove('active');
+        }
     }
+
+    // Reading Progress Bar on Scroll
+    window.addEventListener('scroll', () => {
+        if (!viewArticleDetail.classList.contains('active')) {
+            if (progressBar) progressBar.style.width = '0%';
+            return;
+        }
+        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = totalHeight > 0 ? (window.scrollY / totalHeight) * 100 : 0;
+        if (progressBar) progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+    });
 
     // ============================================================
     //  SUPABASE / LOCAL STORAGE DATA
@@ -149,10 +205,34 @@
         try { localStorage.setItem('emir_comments', JSON.stringify(cmts)); } catch {}
     }
 
+    function getLocalViews() {
+        try {
+            const raw = localStorage.getItem('emir_views');
+            return raw ? JSON.parse(raw) : {};
+        } catch { return {}; }
+    }
+
+    function saveLocalViews(views) {
+        try { localStorage.setItem('emir_views', JSON.stringify(views)); } catch {}
+    }
+
+    function getLocalLikes() {
+        try {
+            const raw = localStorage.getItem('emir_likes');
+            return raw ? JSON.parse(raw) : {};
+        } catch { return {}; }
+    }
+
+    function saveLocalLikes(likes) {
+        try { localStorage.setItem('emir_likes', JSON.stringify(likes)); } catch {}
+    }
+
     async function fetchAllData() {
         categories = getLocalCategories();
         articles = getLocalArticles();
         comments = getLocalComments();
+        likesMap = getLocalLikes();
+        viewsMap = getLocalViews();
 
         try {
             const { data: catData, error: catErr } = await supabase.from('topics').select('*');
@@ -183,33 +263,304 @@
     }
 
     // ============================================================
-    //  SCREEN 1: HOME — CATEGORY PILL BUTTONS (WITH EDIT ACTIONS)
+    //  SCREEN 0: LANDING PAGE — SHOWCASE & INTRO
     // ============================================================
 
-    function renderCategoryGrid() {
-        categoriesGrid.innerHTML = categories.map(cat => {
-            const count = articles.filter(a => String(a.topic_id) === String(cat.id) || String(a.category_id) === String(cat.id) || a.category_name === cat.name).length;
-            return `
-                <button class="cat-pill-btn" data-id="${cat.id}">
-                    <div class="cat-icon-circle">${cat.emoji || '📖'}</div>
-                    <span>${escapeHtml(cat.name)}</span>
-                    ${count > 0 ? `<span style="font-size:0.75rem;opacity:0.6;font-weight:600;">(${count})</span>` : ''}
-                </button>
-            `;
-        }).join('');
+    function renderLandingPage() {
+        if ($('#landing-stat-articles')) $('#landing-stat-articles').textContent = articles.length;
+        if ($('#landing-stat-categories')) $('#landing-stat-categories').textContent = categories.length;
+        if ($('#landing-stat-comments')) $('#landing-stat-comments').textContent = comments.length;
+    }
 
-        categoriesGrid.querySelectorAll('.cat-pill-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                openCategoryView(btn.dataset.id);
+    // ============================================================
+    //  SCREEN 1: HOME — MAGAZINE BLOGGER LAYOUT
+    // ============================================================
+
+    function renderHomeStats() {
+        if ($('#stat-total-articles')) $('#stat-total-articles').textContent = articles.length;
+        if ($('#stat-total-categories')) $('#stat-total-categories').textContent = categories.length;
+        if ($('#stat-total-comments')) $('#stat-total-comments').textContent = comments.length;
+    }
+
+    function renderFeaturedPost() {
+        const container = $('#featured-post-container');
+        if (!container) return;
+
+        if (articles.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+
+        // Up to 3 pinned articles, or 1 latest article as fallback
+        const pinnedList = articles.filter(a => a.is_pinned);
+        const featuredItems = pinnedList.length > 0 ? pinnedList.slice(0, 3) : articles.slice(0, 1);
+        const isMulti = featuredItems.length > 1;
+
+        container.innerHTML = `
+            <div class="featured-cards-list">
+                ${featuredItems.map(item => {
+                    const cat = categories.find(c => String(c.id) === String(item.topic_id) || String(c.id) === String(item.category_id) || c.name === item.category_name) || { name: 'Nổi bật', emoji: '✨' };
+                    const readTime = calcReadTime(item.content);
+                    const excerpt = item.content ? item.content.replace(/[#*`]/g, '').slice(0, 160) + '...' : 'Không có xem trước';
+
+                    return `
+                        <div class="featured-card" data-id="${item.id}">
+                            <div class="featured-badge-row">
+                                <span class="featured-tag">🔥 BÀI VIẾT NỔI BẬT</span>
+                                <span class="cat-pill-badge" style="background:rgba(255,255,255,0.15);color:white;">${cat.emoji || '📖'} ${escapeHtml(cat.name)}</span>
+                                <span class="featured-read-time">⏱️ ${readTime} phút đọc</span>
+                            </div>
+                            <h2 class="featured-title">${escapeHtml(item.title)}</h2>
+                            <p class="featured-excerpt">${escapeHtml(excerpt)}</p>
+                            <div class="featured-footer">
+                                <div class="featured-author">
+                                    <div class="author-avatar">K</div>
+                                    <span class="author-name-text">Blogger Knowledge</span>
+                                </div>
+                                <span class="btn-read-featured">Đọc bài viết ➔</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        container.querySelectorAll('.featured-card').forEach(card => {
+            card.addEventListener('click', () => {
+                openArticleDetailView(card.dataset.id);
             });
         });
     }
 
-    // ============================================================
-    //  SCREEN 2: CATEGORY ARTICLES LIST VIEW
-    // ============================================================
+    function renderCategoryGrid() {
+        if (!categoriesGrid) return;
 
-    function openCategoryView(catId) {
+        // Sort categories by article count in descending order
+        const sortedCats = [...categories].map(cat => {
+            const count = articles.filter(a => String(a.topic_id) === String(cat.id) || String(a.category_id) === String(cat.id) || a.category_name === cat.name).length;
+            return { ...cat, count };
+        }).sort((a, b) => b.count - a.count);
+
+        // Take Top 5
+        const top5 = sortedCats.slice(0, 5);
+
+        categoriesGrid.innerHTML = top5.map(cat => {
+            return `
+                <div class="top-cat-item" data-id="${cat.id}">
+                    <div class="top-cat-item-left">
+                        <span style="font-size:1.1rem;">${cat.emoji || '📖'}</span>
+                        <span class="top-cat-name">${escapeHtml(cat.name)}</span>
+                    </div>
+                    <span class="top-cat-count">${cat.count} bài</span>
+                </div>
+            `;
+        }).join('');
+
+        categoriesGrid.querySelectorAll('.top-cat-item').forEach(item => {
+            item.addEventListener('click', () => {
+                openCategoryView(item.dataset.id);
+            });
+        });
+    }
+
+    function renderAllCategoriesPage(filter = '') {
+        const container = $('#all-categories-full-grid');
+        if (!container) return;
+
+        const filtered = categories.filter(c => !filter || c.name.toLowerCase().includes(filter.toLowerCase()));
+
+        if (filtered.length === 0) {
+            container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:4rem;color:var(--text-sage);font-weight:600;">Không tìm thấy chủ đề nào phù hợp.</div>`;
+            return;
+        }
+
+        container.innerHTML = filtered.map(cat => {
+            const catArticles = articles.filter(a => String(a.topic_id) === String(cat.id) || String(a.category_id) === String(cat.id) || a.category_name === cat.name);
+            const count = catArticles.length;
+            const recentPosts = catArticles.slice(0, 2);
+
+            return `
+                <div class="cat-full-card" data-id="${cat.id}">
+                    <div class="cat-card-top-cover">
+                        <div class="cat-card-header-flex">
+                            <div class="cat-card-hero-icon">${cat.emoji || '📖'}</div>
+                            <div class="cat-card-actions-group">
+                                <button type="button" class="btn-edit-cat-circle" data-id="${cat.id}" title="Chỉnh sửa chủ đề">
+                                    ⚙️
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="cat-card-main-info">
+                            <h3>${escapeHtml(cat.name)}</h3>
+                            <div class="cat-card-meta-bar">
+                                <span class="cat-count-pill">
+                                    <span class="live-dot"></span>
+                                    ${count} bài viết
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cat-card-body-content">
+                        ${recentPosts.length > 0 ? `
+                            <div class="cat-recent-posts-list">
+                                ${recentPosts.map(p => `
+                                    <div class="recent-post-row" data-art-id="${p.id}" title="${escapeHtml(p.title)}">
+                                        <span class="row-icon">📄</span>
+                                        <span class="row-title">${escapeHtml(p.title)}</span>
+                                        <span class="row-arrow">➔</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="cat-empty-notice">
+                                <span>✨ Chưa có bài viết nào</span>
+                            </div>
+                        `}
+                    </div>
+
+                    <div class="cat-card-bottom-btn">
+                        <button type="button" class="btn-explore-cat" data-id="${cat.id}">
+                            <span>Xem tất cả bài viết</span>
+                            <span class="btn-arrow">➔</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.querySelectorAll('.cat-full-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                const editBtn = e.target.closest('.btn-edit-cat-circle');
+                const postRow = e.target.closest('.recent-post-row');
+                if (editBtn) {
+                    e.stopPropagation();
+                    openEditCategoryModal(editBtn.dataset.id);
+                } else if (postRow) {
+                    e.stopPropagation();
+                    openArticleDetailView(postRow.dataset.artId);
+                } else {
+                    openCategoryView(card.dataset.id);
+                }
+            });
+        });
+    }
+
+    $('#search-all-cats-input')?.addEventListener('input', (e) => {
+        renderAllCategoriesPage(e.target.value.trim());
+    });
+
+    function renderHomeArticlesGrid(filter = '') {
+        if (!homeArticlesGrid) return;
+
+        const filtered = articles.filter(a => {
+            return !filter || a.title.toLowerCase().includes(filter.toLowerCase()) || (a.content && a.content.toLowerCase().includes(filter.toLowerCase()));
+        });
+
+        if (filtered.length === 0) {
+            homeArticlesGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-sage);">Không tìm thấy bài viết nào phù hợp.</div>`;
+            return;
+        }
+
+        // Sort: Pinned posts come first
+        const sorted = [...filtered].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
+
+        homeArticlesGrid.innerHTML = sorted.map(art => {
+            const cat = categories.find(c => String(c.id) === String(art.topic_id) || String(c.id) === String(art.category_id) || c.name === art.category_name) || { name: 'Chủ đề', emoji: '📖' };
+            const tags = Array.isArray(art.tags) ? art.tags : (art.tags ? art.tags.split(',') : []);
+            const excerpt = art.content ? art.content.replace(/[#*`]/g, '').slice(0, 100) + '...' : 'Không có xem trước';
+            const readTime = calcReadTime(art.content);
+            const commentCount = comments.filter(c => String(c.entry_id) === String(art.id) || String(c.article_id) === String(art.id)).length;
+            const likes = likesMap[art.id] || 0;
+
+            return `
+                <div class="article-card" data-id="${art.id}">
+                    <div>
+                        <div class="card-top-meta">
+                            <div style="display:flex;align-items:center;gap:0.4rem;">
+                                <span class="card-cat-badge">${cat.emoji || '📖'} ${escapeHtml(cat.name)}</span>
+                            </div>
+                        </div>
+                        <h3 class="article-card-title" style="margin-top:0.6rem;">${escapeHtml(art.title)}</h3>
+                        <p class="article-card-excerpt" style="margin-top:0.4rem;">${escapeHtml(excerpt)}</p>
+                    </div>
+                    <div>
+                        ${tags.length ? `
+                            <div class="article-card-tags" style="margin-bottom:0.75rem;">
+                                ${tags.map(t => `<span class="tag-chip">${escapeHtml(t.trim())}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="card-bottom-bar">
+                            <span>⏱️ ${readTime} phút đọc</span>
+                            <div style="display:flex;gap:0.75rem;">
+                                ${likes > 0 ? `<span>❤️ ${likes}</span>` : ''}
+                                <span>💬 ${commentCount}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        homeArticlesGrid.querySelectorAll('.article-card').forEach(card => {
+            card.addEventListener('click', () => {
+                openArticleDetailView(card.dataset.id);
+            });
+        });
+    }
+
+    function renderTopViewsWidget() {
+        const container = $('#top-views-container');
+        if (!container) return;
+
+        if (articles.length === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:1rem;color:var(--text-sage);font-size:0.85rem;">Chưa có bài viết nào.</div>`;
+            return;
+        }
+
+        // Sort articles by views count descending (fallback to likes or date)
+        const sortedByViews = [...articles].map(art => {
+            const views = viewsMap[art.id] || 0;
+            return { ...art, views };
+        }).sort((a, b) => b.views - a.views || (likesMap[b.id] || 0) - (likesMap[a.id] || 0));
+
+        const top5Views = sortedByViews.slice(0, 5);
+
+        container.innerHTML = top5Views.map((art, idx) => {
+            const cat = categories.find(c => String(c.id) === String(art.topic_id) || String(c.id) === String(art.category_id) || c.name === art.category_name) || { name: 'Chủ đề', emoji: '📖' };
+            return `
+                <div class="top-view-item" data-id="${art.id}">
+                    <div class="top-view-rank">#${idx + 1}</div>
+                    <div class="top-view-main">
+                        <span class="top-view-title">${escapeHtml(art.title)}</span>
+                        <div class="top-view-meta">
+                            <span class="top-view-cat">${cat.emoji || '📖'} ${escapeHtml(cat.name)}</span>
+                            <span>👁️ ${art.views} lượt xem</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.querySelectorAll('.top-view-item').forEach(item => {
+            item.addEventListener('click', () => {
+                openArticleDetailView(item.dataset.id);
+            });
+        });
+    }
+
+    function renderHomePage() {
+        renderHomeStats();
+        renderTopViewsWidget();
+        renderFeaturedPost();
+        renderCategoryGrid();
+        renderHomeArticlesGrid(searchHomeInput ? searchHomeInput.value.trim() : '');
+    }
+
+    function openCategoryView(catId, pushHistory = true) {
         currentCategoryId = catId;
         const cat = categories.find(c => String(c.id) === String(catId)) || { name: 'Chủ đề', emoji: '📖' };
 
@@ -218,6 +569,10 @@
 
         renderCategoryArticles();
         showView('view-category-articles');
+
+        if (pushHistory) {
+            navigateTo({ view: 'category', catId }, true);
+        }
     }
 
     function renderCategoryArticles(filter = '') {
@@ -238,19 +593,29 @@
         articlesGrid.innerHTML = filtered.map(art => {
             const tags = Array.isArray(art.tags) ? art.tags : (art.tags ? art.tags.split(',') : []);
             const excerpt = art.content ? art.content.replace(/[#*`]/g, '').slice(0, 100) + '...' : 'Không có xem trước';
+            const readTime = calcReadTime(art.content);
+            const commentCount = comments.filter(c => String(c.entry_id) === String(art.id) || String(c.article_id) === String(art.id)).length;
+
             return `
                 <div class="article-card" data-id="${art.id}">
-                    <div class="card-top-meta">
-                        <span>📝 Bài viết</span>
-                        <span>${formatDate(art.created_at)}</span>
-                    </div>
-                    <h3 class="article-card-title">${escapeHtml(art.title)}</h3>
-                    <p class="article-card-excerpt">${escapeHtml(excerpt)}</p>
-                    ${tags.length ? `
-                        <div class="article-card-tags">
-                            ${tags.map(t => `<span class="tag-chip">${escapeHtml(t.trim())}</span>`).join('')}
+                    <div>
+                        <div class="card-top-meta">
+                            <span>📝 Bài viết</span>
                         </div>
-                    ` : ''}
+                        <h3 class="article-card-title" style="margin-top:0.5rem;">${escapeHtml(art.title)}</h3>
+                        <p class="article-card-excerpt" style="margin-top:0.4rem;">${escapeHtml(excerpt)}</p>
+                    </div>
+                    <div>
+                        ${tags.length ? `
+                            <div class="article-card-tags" style="margin-bottom:0.75rem;">
+                                ${tags.map(t => `<span class="tag-chip">${escapeHtml(t.trim())}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="card-bottom-bar">
+                            <span>⏱️ ${readTime} phút đọc</span>
+                            <span>💬 ${commentCount} bình luận</span>
+                        </div>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -266,16 +631,48 @@
     //  SCREEN 3: FULL ARTICLE READER VIEW
     // ============================================================
 
-    function openArticleDetailView(artId) {
+    function openArticleDetailView(artId, pushHistory = true) {
         currentArticleId = artId;
         const art = articles.find(a => String(a.id) === String(artId));
         if (!art) return;
 
-        const cat = categories.find(c => String(c.id) === String(art.topic_id) || String(c.id) === String(art.category_id) || c.name === art.category_name) || { name: 'Chủ đề', emoji: '📖' };
+        // Auto sync currentCategoryId so Back button opens this article's category
+        const cat = categories.find(c => String(c.id) === String(art.topic_id) || String(c.id) === String(art.category_id) || c.name === art.category_name);
+        if (cat) {
+            currentCategoryId = cat.id;
+        } else if (art.topic_id) {
+            currentCategoryId = art.topic_id;
+        } else if (art.category_id) {
+            currentCategoryId = art.category_id;
+        }
 
-        $('#reader-cat-badge').textContent = `${cat.emoji || '📖'} ${cat.name}`;
+        const catObj = cat || { name: art.category_name || 'Chủ đề', emoji: '📖' };
+        const readTime = calcReadTime(art.content);
+
+        $('#reader-cat-badge').textContent = `${catObj.emoji || '📖'} ${catObj.name}`;
         $('#reader-date').textContent = formatDate(art.created_at);
+        if ($('#reader-read-time')) $('#reader-read-time').textContent = `⏱️ ${readTime} phút đọc`;
         $('#reader-title').textContent = art.title;
+
+        // Increment View Count
+        viewsMap[artId] = (viewsMap[artId] || 0) + 1;
+        saveLocalViews(viewsMap);
+
+        // Pinned state UI
+        const pinBtn = $('#btn-pin-current-article');
+        if (pinBtn) {
+            if (art.is_pinned) {
+                pinBtn.classList.add('pinned');
+                if ($('#pin-btn-text')) $('#pin-btn-text').textContent = 'Đã nổi bật';
+            } else {
+                pinBtn.classList.remove('pinned');
+                if ($('#pin-btn-text')) $('#pin-btn-text').textContent = 'Nổi bật';
+            }
+        }
+
+        // Likes
+        const likes = likesMap[artId] || 0;
+        if ($('#like-count')) $('#like-count').textContent = likes;
 
         // Tags
         const tags = Array.isArray(art.tags) ? art.tags : (art.tags ? art.tags.split(',') : []);
@@ -294,7 +691,52 @@
         renderArticleComments(artId);
 
         showView('view-article-detail');
+
+        if (pushHistory) {
+            navigateTo({ view: 'article', artId }, true);
+        }
     }
+
+    // Toggle Pin Action
+    async function togglePinCurrentArticle() {
+        if (!currentArticleId) return;
+        const art = articles.find(a => String(a.id) === String(currentArticleId));
+        if (!art) return;
+
+        const currentlyPinnedCount = articles.filter(a => a.is_pinned && String(a.id) !== String(currentArticleId)).length;
+
+        if (!art.is_pinned && currentlyPinnedCount >= 3) {
+            showToast('Tối đa 3 bài viết được chọn Nổi Bật! Vui lòng bỏ bớt bài khác trước.');
+            return;
+        }
+
+        art.is_pinned = !art.is_pinned;
+        saveLocalArticles(articles);
+
+        try {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentArticleId);
+            if (isUuid) {
+                await supabase.from('entries').update({ is_pinned: art.is_pinned }).eq('id', currentArticleId);
+            }
+        } catch (e) {}
+
+        openArticleDetailView(currentArticleId);
+        renderHomePage();
+        showToast(art.is_pinned ? '🔥 Đã thêm bài viết vào danh sách Nổi Bật!' : 'Đã bỏ bài viết khỏi danh sách Nổi Bật!');
+    }
+
+    $('#btn-pin-current-article')?.addEventListener('click', togglePinCurrentArticle);
+
+    // Toggle Like Action
+    $('#btn-like-article')?.addEventListener('click', () => {
+        if (!currentArticleId) return;
+        const currentLikes = likesMap[currentArticleId] || 0;
+        likesMap[currentArticleId] = currentLikes + 1;
+        saveLocalLikes(likesMap);
+        if ($('#like-count')) $('#like-count').textContent = likesMap[currentArticleId];
+        $('#btn-like-article').classList.add('liked');
+        showToast('Cảm ơn bạn đã thích bài viết này! ❤️');
+    });
 
     // ============================================================
     //  COMMENT SYSTEM LOGIC
@@ -387,6 +829,7 @@
 
         contentInput.value = '';
         renderArticleComments(currentArticleId);
+        renderHomeStats();
         showToast('Đã gửi bình luận thành công!');
     }
 
@@ -402,6 +845,7 @@
         } catch (e) {}
 
         renderArticleComments(currentArticleId);
+        renderHomeStats();
         showToast('Đã xóa bình luận!');
     }
 
@@ -568,7 +1012,7 @@
         }
 
         closeModal(modalArticle);
-        renderCategoryGrid();
+        renderHomePage();
 
         if (String(currentCategoryId) === String(catId)) {
             renderCategoryArticles();
@@ -592,7 +1036,7 @@
         } catch (e) {}
 
         showToast('Đã xóa bài viết thành công!');
-        renderCategoryGrid();
+        renderHomePage();
         openCategoryView(currentCategoryId);
     }
 
@@ -619,7 +1063,7 @@
         } catch (e) {}
 
         showToast(`Đã xóa chủ đề "${catName}" thành công!`);
-        renderCategoryGrid();
+        renderHomePage();
         showView('view-home');
     }
 
@@ -721,7 +1165,7 @@
             renderCategoryArticles();
         }
 
-        renderCategoryGrid();
+        renderHomePage();
         showToast('Cập nhật chủ đề thành công!');
         closeModal(modalEditCat);
     }
@@ -752,112 +1196,6 @@
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) closeModal(overlay);
         });
-    });
-
-    // ============================================================
-    //  EVENT LISTENERS & BINDINGS
-    // ============================================================
-
-    // Toggle new category box inside modal
-    $('#btn-toggle-new-cat')?.addEventListener('click', () => {
-        const box = $('#new-cat-box');
-        if (box) {
-            const isHidden = box.style.display === 'none';
-            box.style.display = isHidden ? 'block' : 'none';
-            if (isHidden) $('#new-cat-name')?.focus();
-        }
-    });
-
-    // Emoji picker inside Add Article Modal
-    $$('#emoji-picker .emoji-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            $$('#emoji-picker .emoji-option').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            const hiddenVal = $('#new-cat-emoji');
-            if (hiddenVal) hiddenVal.value = btn.dataset.emoji;
-        });
-    });
-
-    // Emoji picker inside Edit Category Modal
-    $$('#edit-cat-emoji-picker .emoji-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            $$('#edit-cat-emoji-picker .emoji-option').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            const hiddenVal = $('#edit-cat-emoji-value');
-            if (hiddenVal) hiddenVal.value = btn.dataset.emoji;
-        });
-    });
-
-    // Home create post button
-    $('#btn-create-post')?.addEventListener('click', () => openAddArticleModal());
-    $('#btn-add-article-in-cat')?.addEventListener('click', () => openAddArticleModal(currentCategoryId));
-    $('#btn-add-first-article')?.addEventListener('click', () => openAddArticleModal(currentCategoryId));
-    $('#btn-save-article')?.addEventListener('click', saveArticle);
-
-    // Article actions inside Reader View
-    $('#btn-edit-current-article')?.addEventListener('click', () => openEditArticleModal(currentArticleId));
-    $('#btn-delete-current-article')?.addEventListener('click', () => {
-        if ($('#confirm-message')) $('#confirm-message').textContent = 'Bạn có chắc chắn muốn xóa bài viết này?';
-        deleteAction = deleteCurrentArticle;
-        openModal(modalConfirm);
-    });
-
-    // Category Header Title click event delegation (Opens manage options modal)
-    document.addEventListener('click', (e) => {
-        const titleBtn = e.target.closest('#cat-header-title-btn');
-        if (titleBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            openCategoryManageModal();
-        }
-    });
-
-    // Choices inside Category Manage Modal
-    $('#btn-choice-edit-cat')?.addEventListener('click', () => {
-        closeModal(modalCatManage);
-        openEditCategoryModal(currentCategoryId);
-    });
-
-    $('#btn-choice-delete-cat')?.addEventListener('click', () => {
-        closeModal(modalCatManage);
-        const cat = categories.find(c => String(c.id) === String(currentCategoryId));
-        const catName = cat ? cat.name : $('#cat-title-name').textContent;
-        if ($('#confirm-message')) {
-            $('#confirm-message').textContent = `Bạn có chắc chắn muốn xóa chủ đề "${catName}" và tất cả bài viết thuộc về nó?`;
-        }
-        deleteAction = deleteCurrentCategory;
-        openModal(modalConfirm);
-    });
-
-    // Save edited category
-    $('#btn-save-edit-cat')?.addEventListener('click', saveEditCategory);
-
-    // Delete category inside modal
-    $('#btn-delete-cat-in-modal')?.addEventListener('click', () => {
-        closeModal(modalEditCat);
-        const cat = categories.find(c => String(c.id) === String(editingCategoryId || currentCategoryId));
-        const catName = cat ? cat.name : $('#cat-title-name').textContent;
-        if ($('#confirm-message')) {
-            $('#confirm-message').textContent = `Bạn có chắc chắn muốn xóa chủ đề "${catName}" và tất cả bài viết thuộc về nó?`;
-        }
-        deleteAction = deleteCurrentCategory;
-        openModal(modalConfirm);
-    });
-
-    // Confirm Delete button
-    $('#btn-confirm-delete')?.addEventListener('click', async () => {
-        if (deleteAction) { await deleteAction(); deleteAction = null; }
-        closeModal(modalConfirm);
-    });
-
-    // Navigation Back buttons
-    $('#btn-back-home')?.addEventListener('click', () => {
-        renderCategoryGrid();
-        showView('view-home');
-    });
-
-    $('#btn-back-cat-articles')?.addEventListener('click', () => {
-        openCategoryView(currentCategoryId);
     });
 
     // ============================================================
@@ -952,10 +1290,291 @@
         }
     });
 
+    // ============================================================
+    //  EVENT LISTENERS & BINDINGS
+    // ============================================================
+
+    // Navigation bar links
+    $('#nav-brand-logo')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        showView('view-home');
+    });
+
+    $('#nav-item-home')?.addEventListener('click', () => {
+        showView('view-home');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    $('#nav-item-categories')?.addEventListener('click', () => {
+        renderAllCategoriesPage();
+        showView('view-all-categories');
+    });
+
+    $('#btn-back-home-from-all-cats')?.addEventListener('click', () => {
+        showView('view-home');
+    });
+
+    $('#btn-add-cat-from-all')?.addEventListener('click', () => {
+        openAddArticleModal();
+        $('#new-cat-box').style.display = 'block';
+    });
+
+    // Toggle new category box inside modal
+    $('#btn-toggle-new-cat')?.addEventListener('click', () => {
+        const box = $('#new-cat-box');
+        if (box) {
+            const isHidden = box.style.display === 'none';
+            box.style.display = isHidden ? 'block' : 'none';
+            if (isHidden) $('#new-cat-name')?.focus();
+        }
+    });
+
+    // Emoji picker inside Add Article Modal
+    $$('#emoji-picker .emoji-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            $$('#emoji-picker .emoji-option').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            const hiddenVal = $('#new-cat-emoji');
+            if (hiddenVal) hiddenVal.value = btn.dataset.emoji;
+        });
+    });
+
+    // Emoji picker inside Edit Category Modal
+    $$('#edit-cat-emoji-picker .emoji-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            $$('#edit-cat-emoji-picker .emoji-option').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            const hiddenVal = $('#edit-cat-emoji-value');
+            if (hiddenVal) hiddenVal.value = btn.dataset.emoji;
+        });
+    });
+
+    // Top Nav Menu Items & Landing Page Action Buttons
+    $('#nav-item-landing')?.addEventListener('click', () => {
+        navigateTo({ view: 'landing' });
+        renderLandingPage();
+        showView('view-landing');
+    });
+
+    $('#nav-item-home')?.addEventListener('click', () => {
+        navigateTo({ view: 'home' });
+        renderHomePage();
+        showView('view-home');
+    });
+
+    $('#nav-item-categories')?.addEventListener('click', () => {
+        navigateTo({ view: 'all-categories' });
+        renderAllCategoriesPage();
+        showView('view-all-categories');
+    });
+
+    $('#btn-enter-app-hero')?.addEventListener('click', () => {
+        navigateTo({ view: 'home' });
+        renderHomePage();
+        showView('view-home');
+    });
+
+    $('#btn-enter-app-bottom')?.addEventListener('click', () => {
+        navigateTo({ view: 'home' });
+        renderHomePage();
+        showView('view-home');
+    });
+
+    $('#btn-create-post-landing')?.addEventListener('click', () => {
+        openAddArticleModal();
+    });
+
+    // Home create post button
+    $('#btn-create-post')?.addEventListener('click', () => openAddArticleModal());
+    $('#btn-create-post-secondary')?.addEventListener('click', () => openAddArticleModal());
+    $('#btn-see-all-cats-sidebar')?.addEventListener('click', () => {
+        renderAllCategoriesPage();
+        showView('view-all-categories');
+    });
+    $('#btn-add-article-in-cat')?.addEventListener('click', () => openAddArticleModal(currentCategoryId));
+    $('#btn-add-first-article')?.addEventListener('click', () => openAddArticleModal(currentCategoryId));
+    $('#btn-save-article')?.addEventListener('click', saveArticle);
+
+    // Article actions inside Reader View
+    $('#btn-edit-current-article')?.addEventListener('click', () => openEditArticleModal(currentArticleId));
+    $('#btn-delete-current-article')?.addEventListener('click', () => {
+        if ($('#confirm-message')) $('#confirm-message').textContent = 'Bạn có chắc chắn muốn xóa bài viết này?';
+        deleteAction = deleteCurrentArticle;
+        openModal(modalConfirm);
+    });
+
+    // Category Header Title click event delegation (Opens manage options modal)
+    document.addEventListener('click', (e) => {
+        const titleBtn = e.target.closest('#cat-header-title-btn');
+        if (titleBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            openCategoryManageModal();
+        }
+    });
+
+    // Choices inside Category Manage Modal
+    $('#btn-choice-edit-cat')?.addEventListener('click', () => {
+        closeModal(modalCatManage);
+        openEditCategoryModal(currentCategoryId);
+    });
+
+    $('#btn-choice-delete-cat')?.addEventListener('click', () => {
+        closeModal(modalCatManage);
+        const cat = categories.find(c => String(c.id) === String(currentCategoryId));
+        const catName = cat ? cat.name : $('#cat-title-name').textContent;
+        if ($('#confirm-message')) {
+            $('#confirm-message').textContent = `Bạn có chắc chắn muốn xóa chủ đề "${catName}" và tất cả bài viết thuộc về nó?`;
+        }
+        deleteAction = deleteCurrentCategory;
+        openModal(modalConfirm);
+    });
+
+    // Save edited category
+    $('#btn-save-edit-cat')?.addEventListener('click', saveEditCategory);
+
+    // Delete category inside modal
+    $('#btn-delete-cat-in-modal')?.addEventListener('click', () => {
+        closeModal(modalEditCat);
+        const cat = categories.find(c => String(c.id) === String(editingCategoryId || currentCategoryId));
+        const catName = cat ? cat.name : $('#cat-title-name').textContent;
+        if ($('#confirm-message')) {
+            $('#confirm-message').textContent = `Bạn có chắc chắn muốn xóa chủ đề "${catName}" và tất cả bài viết thuộc về nó?`;
+        }
+        deleteAction = deleteCurrentCategory;
+        openModal(modalConfirm);
+    });
+
+    // Confirm Delete button
+    $('#btn-confirm-delete')?.addEventListener('click', async () => {
+        if (deleteAction) { await deleteAction(); deleteAction = null; }
+        closeModal(modalConfirm);
+    });
+
+    // ============================================================
+    //  SPA ROUTER & HISTORY BACK MANAGEMENT
+    // ============================================================
+
+    function navigateTo(routeState, push = true) {
+        let hash = '#landing';
+        if (routeState.view === 'home') {
+            hash = `#home`;
+        } else if (routeState.view === 'category' && routeState.catId) {
+            hash = `#category/${routeState.catId}`;
+        } else if (routeState.view === 'article' && routeState.artId) {
+            hash = `#article/${routeState.artId}`;
+        } else if (routeState.view === 'all-categories') {
+            hash = `#categories`;
+        }
+
+        if (push && window.location.hash !== hash) {
+            history.pushState(routeState, '', hash);
+        }
+    }
+
+    function applyRouteState(routeState) {
+        const { view, catId, artId } = routeState || {};
+        if (view === 'home') {
+            renderHomePage();
+            showView('view-home');
+        } else if (view === 'category' && catId) {
+            openCategoryView(catId, false);
+        } else if (view === 'article' && artId) {
+            openArticleDetailView(artId, false);
+        } else if (view === 'all-categories') {
+            renderAllCategoriesPage();
+            showView('view-all-categories');
+        } else {
+            renderLandingPage();
+            showView('view-landing');
+        }
+    }
+
+    window.addEventListener('popstate', (e) => {
+        if (e.state) {
+            applyRouteState(e.state);
+        } else {
+            parseHashAndNavigate();
+        }
+    });
+
+    function parseHashAndNavigate() {
+        const hash = window.location.hash;
+        if (hash === '#home') {
+            applyRouteState({ view: 'home' });
+        } else if (hash.startsWith('#category/')) {
+            const catId = hash.replace('#category/', '');
+            applyRouteState({ view: 'category', catId });
+        } else if (hash.startsWith('#article/')) {
+            const artId = hash.replace('#article/', '');
+            applyRouteState({ view: 'article', artId });
+        } else if (hash === '#categories') {
+            applyRouteState({ view: 'all-categories' });
+        } else {
+            applyRouteState({ view: 'landing' });
+        }
+    }
+
+    // Navigation Back buttons
+    $('#btn-back-home')?.addEventListener('click', () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            navigateTo({ view: 'home' });
+            renderHomePage();
+            showView('view-home');
+        }
+    });
+
+    $('#btn-back-cat-articles')?.addEventListener('click', () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else if (currentCategoryId) {
+            openCategoryView(currentCategoryId, false);
+        } else {
+            navigateTo({ view: 'home' });
+            renderHomePage();
+            showView('view-home');
+        }
+    });
+
+    $('#btn-back-home-from-all-cats')?.addEventListener('click', () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            navigateTo({ view: 'home' });
+            renderHomePage();
+            showView('view-home');
+        }
+    });
+
     // Comment Submit Button Handler
     $('#btn-submit-comment')?.addEventListener('click', submitComment);
 
-    // Search input inside Category list
+    // Nav Dropdown Toggle Handler (Click to open/close)
+    $$('.nav-dropdown-trigger').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrapper = btn.closest('.nav-dropdown-wrapper');
+            const isOpen = wrapper ? wrapper.classList.contains('is-open') : false;
+
+            // Close any other open dropdowns
+            $$('.nav-dropdown-wrapper.is-open').forEach(w => w.classList.remove('is-open'));
+
+            if (wrapper && !isOpen) {
+                wrapper.classList.add('is-open');
+            }
+        });
+    });
+
+    // Click outside to close open dropdowns
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.nav-dropdown-wrapper')) {
+            $$('.nav-dropdown-wrapper.is-open').forEach(w => w.classList.remove('is-open'));
+        }
+    });
+
+    // Search inputs
     let searchDebounce = null;
     if (searchCatInput) {
         searchCatInput.addEventListener('input', () => {
@@ -966,14 +1585,28 @@
         });
     }
 
+    if (searchHomeInput) {
+        searchHomeInput.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                renderHomeArticlesGrid(searchHomeInput.value.trim());
+            }, 200);
+        });
+    }
+
     // ============================================================
     //  INIT
     // ============================================================
 
     async function init() {
+        // Fit cứng luôn luôn mở trang Giới thiệu (view-landing) ngay lập tức khi vừa tải trang (0ms trễ)
+        window.location.hash = '#landing';
+        showView('view-landing');
+        renderLandingPage();
+
+        // Tải dữ liệu đám mây Supabase ở nền sau
         await fetchAllData();
-        renderCategoryGrid();
-        showView('view-home');
+        renderLandingPage();
     }
 
     init();
