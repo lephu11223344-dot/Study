@@ -121,6 +121,25 @@
         setTimeout(() => toast.remove(), 2500);
     }
 
+    function updateNavPillPosition() {
+        const activeItem = $('.nav-center-menu .nav-menu-item.active');
+        const pillBg = $('#nav-active-pill-bg');
+        const navContainer = $('.nav-center-menu');
+        if (activeItem && pillBg && navContainer) {
+            const containerRect = navContainer.getBoundingClientRect();
+            const itemRect = activeItem.getBoundingClientRect();
+            const left = itemRect.left - containerRect.left;
+            const width = itemRect.width;
+            pillBg.style.left = `${left}px`;
+            pillBg.style.width = `${width}px`;
+            pillBg.style.opacity = '1';
+        } else if (pillBg) {
+            pillBg.style.opacity = '0';
+        }
+    }
+
+    window.addEventListener('resize', updateNavPillPosition);
+
     // Navigation Switcher
     function showView(viewId) {
         [viewLanding, viewHome, viewCategoryArticles, viewArticleDetail, viewAllCategories].forEach(v => v?.classList.remove('active'));
@@ -155,6 +174,9 @@
             $('#nav-item-home')?.classList.remove('active');
             $('#nav-item-categories')?.classList.remove('active');
         }
+
+        // Trigger smooth sliding pill animation
+        requestAnimationFrame(updateNavPillPosition);
     }
 
     // Reading Progress Bar on Scroll
@@ -1603,6 +1625,7 @@
         window.location.hash = '#landing';
         showView('view-landing');
         renderLandingPage();
+        setTimeout(updateNavPillPosition, 50);
 
         // Tải dữ liệu đám mây Supabase ở nền sau
         await fetchAllData();

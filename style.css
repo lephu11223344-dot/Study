@@ -235,31 +235,55 @@ body {
 }
 
 .nav-center-menu {
-    display: flex;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    background: rgba(0, 0, 0, 0.04);
+    gap: 0.15rem;
+    background: rgba(30, 37, 43, 0.06);
     padding: 0.25rem;
     border-radius: 100px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    z-index: 1;
+}
+
+.nav-active-pill-bg {
+    position: absolute;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    background: #FFFFFF;
+    border-radius: 100px;
+    box-shadow: 0 4px 14px rgba(30, 37, 43, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
 }
 
 .nav-menu-item {
+    position: relative;
+    z-index: 2;
     border: none;
     background: transparent;
-    padding: 0.45rem 1.1rem;
+    padding: 0.48rem 1.25rem;
     border-radius: 100px;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 0.86rem;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.88rem;
     font-weight: 700;
     color: var(--text-sage);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: color 0.25s ease;
+    user-select: none;
 }
 
-.nav-menu-item.active, .nav-menu-item:hover {
-    background: var(--bg-card);
+.nav-menu-item:hover {
     color: var(--text-dark);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.nav-menu-item.active {
+    color: var(--text-dark);
+    font-weight: 800;
 }
 
 .btn-create-post-nav {
