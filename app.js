@@ -108,7 +108,7 @@
     function getLocalCategories() {
         try {
             const raw = localStorage.getItem('emir_categories');
-            return raw ? JSON.parse(raw) : DEFAULT_CATEGORIES;
+            return raw !== null ? JSON.parse(raw) : DEFAULT_CATEGORIES;
         } catch { return DEFAULT_CATEGORIES; }
     }
 
@@ -133,13 +133,14 @@
 
         try {
             const { data: catData, error: catErr } = await supabase.from('topics').select('*');
-            if (!catErr && catData && catData.length > 0) {
-                // Merge with default categories
-                const map = new Map();
-                DEFAULT_CATEGORIES.forEach(c => map.set(c.name.toLowerCase(), c));
-                catData.forEach(c => map.set(c.name.toLowerCase(), c));
-                categories = Array.from(map.values());
-                saveLocalCategories(categories);
+            if (!catErr && catData) {
+                if (catData.length > 0) {
+                    categories = catData;
+                    saveLocalCategories(categories);
+                } else if (localStorage.getItem('emir_categories') === null) {
+                    categories = DEFAULT_CATEGORIES;
+                    saveLocalCategories(categories);
+                }
             }
 
             const { data: artData, error: artErr } = await supabase.from('entries').select('*');
