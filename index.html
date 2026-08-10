@@ -3,216 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Kho tàng kiến thức - Lưu trữ và quản lý kiến thức mới một cách hiệu quả">
-    <title>📚 Kho Tàng Kiến Thức</title>
+    <meta name="description" content="KNOWLEDGE - Phân loại bài viết theo thể loại & đọc chi tiết">
+    <title>KNOWLEDGE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- ========== TRANG 1: GIỚI THIỆU ========== -->
-    <div id="page-home" class="page active">
-        <!-- Animated background -->
-        <div class="bg-orbs">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-2"></div>
-            <div class="orb orb-3"></div>
-            <div class="orb orb-4"></div>
-        </div>
+    <!-- Background Organic Accents -->
+    <div class="bg-shapes">
+        <div class="shape shape-top-right"></div>
+        <div class="shape shape-bottom-left"></div>
+    </div>
 
-        <header class="hero-header">
-            <div class="logo-badge">
-                <span class="logo-icon">📚</span>
-            </div>
-            <h1 class="hero-title">Kho Tàng Kiến Thức</h1>
-            <p class="hero-subtitle">Lưu trữ & khám phá những kiến thức mới mỗi ngày</p>
-            <div class="stats-bar">
-                <div class="stat-item">
-                    <span class="stat-number" id="total-topics">0</span>
-                    <span class="stat-label">Chủ đề</span>
-                </div>
-                <div class="stat-divider"></div>
-                <div class="stat-item">
-                    <span class="stat-number" id="total-entries">0</span>
-                    <span class="stat-label">Bài viết</span>
-                </div>
-            </div>
-        </header>
+    <div class="app-container">
+        <!-- ========== TRANG 1: TRANG CHỦ THỂ LOẠI (MATCH SCREENSHOT 100%) ========== -->
+        <div id="view-home" class="page-view active">
+            <header class="hero-center">
+                <h1 class="hero-giant-title">
+                    Best<br>
+                    <span class="highlight-dark">Knowledge</span><br>
+                    in <span class="highlight-sage">2026</span>
+                </h1>
 
-        <!-- Search bar -->
-        <div class="search-container">
-            <div class="search-box">
-                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                </svg>
-                <input type="text" id="search-input" placeholder="Tìm kiếm kiến thức..." autocomplete="off">
-                <button id="btn-add-topic" class="btn-add" title="Thêm chủ đề mới">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <path d="M12 5v14M5 12h14"></path>
-                    </svg>
+                <div class="subtitle-divider">
+                    <span class="div-line"></span>
+                    <span class="div-text">Simple picks by category</span>
+                    <span class="div-line"></span>
+                </div>
+            </header>
+
+            <!-- Grid nút Thể loại (Pill Buttons Grid) -->
+            <div class="categories-pill-grid" id="categories-grid">
+                <!-- Rendered dynamically by JS -->
+            </div>
+
+            <!-- Global Action Bar -->
+            <div class="home-bottom-actions">
+                <button class="btn-create-post" id="btn-create-post">
+                    <span class="btn-icon-plus">+</span>
+                    <span>Create new post</span>
                 </button>
             </div>
         </div>
 
-        <!-- Knowledge grid -->
-        <main class="topics-grid" id="topics-grid">
-            <!-- Cards will be rendered by JS -->
-        </main>
+        <!-- ========== TRANG 2: DANH SÁCH BÀI VIẾT THEO THỂ LOẠI ========== -->
+        <div id="view-category-articles" class="page-view">
+            <header class="nav-bar-header">
+                <button class="btn-nav-back" id="btn-back-home">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Home</span>
+                </button>
+                <div class="category-header-title clickable" id="cat-header-title-btn" title="Click to edit or delete category">
+                    <span class="cat-icon-badge" id="cat-badge-emoji">📖</span>
+                    <h2 id="cat-title-name">Category Title</h2>
+                    <span class="cat-edit-indicator" title="Click to manage category">⚙️</span>
+                </div>
+                <div class="category-header-actions">
+                    <button class="btn-plus-action" id="btn-add-article-in-cat" title="Create new post">
+                        <span class="plus-icon">+</span>
+                    </button>
+                </div>
+            </header>
 
-        <!-- Empty state -->
-        <div class="empty-state" id="empty-state" style="display:none;">
-            <div class="empty-icon">🌱</div>
-            <h2>Chưa có kiến thức nào</h2>
-            <p>Hãy bắt đầu thêm chủ đề đầu tiên của bạn!</p>
-            <button class="btn-primary" id="btn-add-first">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M12 5v14M5 12h14"></path>
-                </svg>
-                Thêm chủ đề
-            </button>
+            <div class="search-category-row">
+                <div class="search-input-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-cat-input" placeholder="Search posts in this category...">
+                </div>
+            </div>
+
+            <main class="articles-grid" id="articles-grid">
+                <!-- Articles rendered by JS -->
+            </main>
+
+            <div class="empty-articles-state" id="empty-articles" style="display:none;">
+                <div class="empty-emoji">📄</div>
+                <h3>No posts in this category yet</h3>
+                <p>Create your first post now!</p>
+                <button class="btn-primary" id="btn-add-first-article">+ Create new post</button>
+            </div>
+        </div>
+
+        <!-- ========== TRANG 3: CHI TIẾT BÀI VIẾT ĐẦY ĐỦ (FULL READER VIEW) ========== -->
+        <div id="view-article-detail" class="page-view">
+            <header class="nav-bar-header">
+                <button class="btn-nav-back" id="btn-back-cat-articles">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Back</span>
+                </button>
+                <div class="article-actions-top">
+                    <button class="btn-action-icon" id="btn-edit-current-article" title="Chỉnh sửa bài viết">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                        <span>Sửa</span>
+                    </button>
+                    <button class="btn-action-icon btn-danger" id="btn-delete-current-article" title="Xóa bài viết">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        <span>Xóa</span>
+                    </button>
+                </div>
+            </header>
+
+            <article class="reader-container">
+                <div class="reader-meta-bar">
+                    <span class="cat-pill-badge" id="reader-cat-badge">Thể loại</span>
+                    <span class="reader-date" id="reader-date">10/08/2026</span>
+                </div>
+
+                <h1 class="reader-title" id="reader-title">Tiêu đề bài viết đầy đủ</h1>
+
+                <div class="reader-tags-row" id="reader-tags">
+                    <!-- Tag chips rendered here -->
+                </div>
+
+                <div class="reader-content-body" id="reader-content">
+                    <!-- Full Article Body Rendered here -->
+                </div>
+            </article>
         </div>
     </div>
 
-    <!-- ========== TRANG 2: CHI TIẾT KIẾN THỨC ========== -->
-    <div id="page-detail" class="page">
-        <div class="bg-orbs">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-2"></div>
-        </div>
-
-        <header class="detail-header">
-            <button id="btn-back" class="btn-back" title="Quay lại">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="m15 18-6-6 6-6"></path>
-                </svg>
-                <span>Quay lại</span>
-            </button>
-            <div class="detail-title-group">
-                <span class="detail-emoji" id="detail-emoji">📖</span>
-                <h1 class="detail-title" id="detail-title">Tên chủ đề</h1>
-            </div>
-            <div class="detail-actions">
-                <button id="btn-add-entry" class="btn-primary btn-sm">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <path d="M12 5v14M5 12h14"></path>
-                    </svg>
-                    Thêm kiến thức
-                </button>
-                <button id="btn-edit-topic" class="btn-icon" title="Sửa chủ đề">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
-                    </svg>
-                </button>
-                <button id="btn-delete-topic" class="btn-icon btn-danger" title="Xóa chủ đề">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                    </svg>
-                </button>
-            </div>
-        </header>
-
-        <!-- Entries list -->
-        <main class="entries-list" id="entries-list">
-            <!-- Entries rendered by JS -->
-        </main>
-
-        <div class="empty-state" id="empty-entries" style="display:none;">
-            <div class="empty-icon">📝</div>
-            <h2>Chưa có kiến thức nào</h2>
-            <p>Hãy thêm kiến thức mới vào chủ đề này!</p>
-            <button class="btn-primary" id="btn-add-first-entry">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M12 5v14M5 12h14"></path>
-                </svg>
-                Thêm kiến thức
-            </button>
-        </div>
-    </div>
-
-    <!-- ========== MODAL: THÊM/SỬA CHỦ ĐỀ ========== -->
-    <div id="modal-topic" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 id="modal-topic-title">Thêm chủ đề mới</h2>
-                <button class="modal-close" data-close="modal-topic">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="topic-name">Tên chủ đề</label>
-                    <input type="text" id="topic-name" placeholder="VD: JavaScript, Python, Machine Learning..." maxlength="50">
-                </div>
-                <div class="form-group">
-                    <label for="topic-emoji">Biểu tượng</label>
-                    <div class="emoji-picker" id="emoji-picker">
-                        <button type="button" class="emoji-option" data-emoji="📖">📖</button>
-                        <button type="button" class="emoji-option" data-emoji="💻">💻</button>
-                        <button type="button" class="emoji-option" data-emoji="🧠">🧠</button>
-                        <button type="button" class="emoji-option" data-emoji="🔬">🔬</button>
-                        <button type="button" class="emoji-option" data-emoji="🎨">🎨</button>
-                        <button type="button" class="emoji-option" data-emoji="📊">📊</button>
-                        <button type="button" class="emoji-option" data-emoji="🌐">🌐</button>
-                        <button type="button" class="emoji-option" data-emoji="⚡">⚡</button>
-                        <button type="button" class="emoji-option" data-emoji="🔧">🔧</button>
-                        <button type="button" class="emoji-option" data-emoji="🎯">🎯</button>
-                        <button type="button" class="emoji-option" data-emoji="🚀">🚀</button>
-                        <button type="button" class="emoji-option" data-emoji="📐">📐</button>
-                        <button type="button" class="emoji-option" data-emoji="🧪">🧪</button>
-                        <button type="button" class="emoji-option" data-emoji="🎵">🎵</button>
-                        <button type="button" class="emoji-option" data-emoji="📷">📷</button>
-                        <button type="button" class="emoji-option" data-emoji="🏗️">🏗️</button>
-                        <button type="button" class="emoji-option" data-emoji="💡">💡</button>
-                        <button type="button" class="emoji-option" data-emoji="📱">📱</button>
-                    </div>
-                    <input type="hidden" id="topic-emoji-value" value="📖">
-                </div>
-                <div class="form-group">
-                    <label for="topic-color">Màu sắc</label>
-                    <div class="color-picker" id="color-picker">
-                        <button type="button" class="color-option" data-color="#6C5CE7" style="--c:#6C5CE7"></button>
-                        <button type="button" class="color-option" data-color="#0984E3" style="--c:#0984E3"></button>
-                        <button type="button" class="color-option" data-color="#00B894" style="--c:#00B894"></button>
-                        <button type="button" class="color-option" data-color="#E17055" style="--c:#E17055"></button>
-                        <button type="button" class="color-option" data-color="#FD79A8" style="--c:#FD79A8"></button>
-                        <button type="button" class="color-option" data-color="#FDCB6E" style="--c:#FDCB6E"></button>
-                        <button type="button" class="color-option" data-color="#E84393" style="--c:#E84393"></button>
-                        <button type="button" class="color-option" data-color="#00CEC9" style="--c:#00CEC9"></button>
-                    </div>
-                    <input type="hidden" id="topic-color-value" value="#6C5CE7">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" data-close="modal-topic">Hủy</button>
-                <button class="btn-primary" id="btn-save-topic">Lưu chủ đề</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========== MODAL: THÊM/SỬA KIẾN THỨC ========== -->
-    <div id="modal-entry" class="modal-overlay">
+    <!-- ========== MODAL: TẠO / SỬA BÀI VIẾT MỚI (VỚI TỰ CHỌN / THÊM THỂ LOẠI) ========== -->
+    <div id="modal-article" class="modal-overlay">
         <div class="modal modal-lg">
             <div class="modal-header">
-                <h2 id="modal-entry-title">Thêm kiến thức mới</h2>
-                <button class="modal-close" data-close="modal-entry">&times;</button>
+                <h2 id="modal-article-title">Tạo bài viết mới</h2>
+                <button class="modal-close" data-close="modal-article">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label for="entry-title">Tiêu đề</label>
-                    <input type="text" id="entry-title" placeholder="VD: Cách sử dụng Promise trong JS..." maxlength="100">
+                    <label for="post-title">Tiêu đề bài viết</label>
+                    <input type="text" id="post-title" placeholder="VD: 10 Công cụ AI hỗ trợ lập trình 2026..." maxlength="120">
                 </div>
+
+                <!-- Chọn thể loại có sẵn HOẶC Thêm thể loại mới -->
                 <div class="form-group">
-                    <label for="entry-content">Nội dung kiến thức</label>
-                    <textarea id="entry-content" rows="10" placeholder="Ghi lại kiến thức của bạn ở đây...&#10;&#10;Hỗ trợ Markdown:&#10;**in đậm**, *in nghiêng*&#10;- Danh sách&#10;`code`&#10;```khối code```"></textarea>
+                    <label>Thể loại chủ đề</label>
+                    <div class="category-selection-box">
+                        <select id="post-category-select">
+                            <!-- Options populated by JS -->
+                        </select>
+                        <button type="button" class="btn-inline-secondary" id="btn-toggle-new-cat">
+                            + Thể loại mới
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Thể loại mới Form Input (Ẩn mặc định) -->
+                <div class="new-category-input-group" id="new-cat-box" style="display:none;">
+                    <div class="form-group">
+                        <label for="new-cat-name">Tên thể loại mới</label>
+                        <input type="text" id="new-cat-name" placeholder="VD: Lập trình, AI Tools, Sách hay...">
+                    </div>
+                    <div class="form-group">
+                        <label>Biểu tượng thể loại</label>
+                        <div class="emoji-picker" id="emoji-picker">
+                            <button type="button" class="emoji-option selected" data-emoji="🖊️">🖊️</button>
+                            <button type="button" class="emoji-option" data-emoji="🔍">🔍</button>
+                            <button type="button" class="emoji-option" data-emoji="🏔️">🏔️</button>
+                            <button type="button" class="emoji-option" data-emoji="▷">▷</button>
+                            <button type="button" class="emoji-option" data-emoji="🎛️">🎛️</button>
+                            <button type="button" class="emoji-option" data-emoji="🖌️">🖌️</button>
+                            <button type="button" class="emoji-option" data-emoji="⚙️">⚙️</button>
+                            <button type="button" class="emoji-option" data-emoji="💡">💡</button>
+                            <button type="button" class="emoji-option" data-emoji="💻">💻</button>
+                            <button type="button" class="emoji-option" data-emoji="📖">📖</button>
+                            <button type="button" class="emoji-option" data-emoji="🚀">🚀</button>
+                        </div>
+                        <input type="hidden" id="new-cat-emoji" value="🖊️">
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label for="entry-tags">Thẻ tag (phân cách bởi dấu phẩy)</label>
-                    <input type="text" id="entry-tags" placeholder="VD: javascript, async, promise">
+                    <label for="post-content">Nội dung bài viết đầy đủ</label>
+                    <textarea id="post-content" rows="10" placeholder="Viết toàn bộ nội dung của bạn ở đây...&#10;&#10;Hỗ trợ Markdown:&#10;**in đậm**, *in nghiêng*&#10;- Danh sách bài viết&#10;`code`"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="post-tags">Thẻ tag (phân cách bởi dấu phẩy)</label>
+                    <input type="text" id="post-tags" placeholder="VD: ai, tools, writing, coding">
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" data-close="modal-entry">Hủy</button>
-                <button class="btn-primary" id="btn-save-entry">Lưu kiến thức</button>
+                <button class="btn-secondary" data-close="modal-article">Hủy</button>
+                <button class="btn-primary" id="btn-save-article">Lưu bài viết</button>
             </div>
         </div>
     </div>
@@ -225,7 +200,7 @@
                 <button class="modal-close" data-close="modal-confirm">&times;</button>
             </div>
             <div class="modal-body">
-                <p id="confirm-message" class="confirm-text">Bạn có chắc chắn muốn xóa?</p>
+                <p id="confirm-message" class="confirm-text">Bạn có chắc chắn muốn xóa bài viết này?</p>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" data-close="modal-confirm">Hủy</button>
@@ -234,7 +209,75 @@
         </div>
     </div>
 
-    <!-- Toast notification -->
+    <!-- ========== MODAL: CHỈNH SỬA THỂ LOẠI / CHỦ ĐỀ ========== -->
+    <div id="modal-edit-cat" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Chỉnh sửa chủ đề</h2>
+                <button class="modal-close" data-close="modal-edit-cat">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="edit-cat-name">Tên chủ đề</label>
+                    <input type="text" id="edit-cat-name" placeholder="VD: Writing, Lập trình, Design..." maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>Biểu tượng chủ đề</label>
+                    <div class="emoji-picker" id="edit-cat-emoji-picker">
+                        <button type="button" class="emoji-option" data-emoji="🖊️">🖊️</button>
+                        <button type="button" class="emoji-option" data-emoji="🔍">🔍</button>
+                        <button type="button" class="emoji-option" data-emoji="🏔️">🏔️</button>
+                        <button type="button" class="emoji-option" data-emoji="▷">▷</button>
+                        <button type="button" class="emoji-option" data-emoji="🎛️">🎛️</button>
+                        <button type="button" class="emoji-option" data-emoji="🖌️">🖌️</button>
+                        <button type="button" class="emoji-option" data-emoji="⚙️">⚙️</button>
+                        <button type="button" class="emoji-option" data-emoji="💡">💡</button>
+                        <button type="button" class="emoji-option" data-emoji="💻">💻</button>
+                        <button type="button" class="emoji-option" data-emoji="📖">📖</button>
+                        <button type="button" class="emoji-option" data-emoji="🚀">🚀</button>
+                        <button type="button" class="emoji-option" data-emoji="🧠">🧠</button>
+                        <button type="button" class="emoji-option" data-emoji="🎨">🎨</button>
+                    </div>
+                    <input type="hidden" id="edit-cat-emoji-value" value="📖">
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content:space-between;">
+                <button class="btn-danger-fill" id="btn-delete-cat-in-modal">Xóa chủ đề</button>
+                <div style="display:flex;gap:0.5rem;">
+                    <button class="btn-secondary" data-close="modal-edit-cat">Hủy</button>
+                    <button class="btn-primary" id="btn-save-edit-cat">Lưu thay đổi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODAL: THAO TÁC THỂ LOẠI (EDIT & DELETE) ========== -->
+    <div id="modal-cat-manage" class="modal-overlay">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2 id="cat-manage-title">Tùy chọn chủ đề</h2>
+                <button class="modal-close" data-close="modal-cat-manage">&times;</button>
+            </div>
+            <div class="modal-body" style="display:flex;flex-direction:column;gap:0.75rem;">
+                <button class="btn-option-choice" id="btn-choice-edit-cat">
+                    <span class="choice-icon">✏️</span>
+                    <div class="choice-text">
+                        <span class="choice-title">Chỉnh sửa chủ đề</span>
+                        <span class="choice-desc">Đổi tên hoặc biểu tượng chủ đề</span>
+                    </div>
+                </button>
+                <button class="btn-option-choice danger" id="btn-choice-delete-cat">
+                    <span class="choice-icon">🗑️</span>
+                    <div class="choice-text">
+                        <span class="choice-title">Xóa chủ đề</span>
+                        <span class="choice-desc">Xóa chủ đề này và tất cả bài viết thuộc về nó</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
     <div id="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>

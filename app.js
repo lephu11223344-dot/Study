@@ -1,6 +1,5 @@
 /* ============================================
-   KHO TÀNG KIẾN THỨC — Application Logic
-   Kết nối với Supabase Database
+   EMIR KNOWLEDGE LAB — Application Logic
    ============================================ */
 
 (() => {
@@ -9,643 +8,735 @@
     // ---- Supabase Config ----
     const SUPABASE_URL = 'https://nhlxvsgkepaqqnfoqxqb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5obHh2c2drZXBhcXFuZm9xeHFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxMjIzOTIsImV4cCI6MjEwMDY5ODM5Mn0.JmRdrrnCyIbkEIbM7aBs2AZ0hKznWdqKAcRCYxs6mBo';
-
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ---- State ----
-    let topics = [];
-    let currentTopicId = null;
-    let editingTopicId = null;
-    let editingEntryId = null;
+    // Default Categories from Screenshot
+    const DEFAULT_CATEGORIES = [
+        { id: 'cat-writing', name: 'Writing', emoji: '🖊️', color: '#7C8B76' },
+        { id: 'cat-research', name: 'Research', emoji: '🔍', color: '#7C8B76' },
+        { id: 'cat-images', name: 'Images', emoji: '🏔️', color: '#7C8B76' },
+        { id: 'cat-video', name: 'Video', emoji: '▷', color: '#7C8B76' },
+        { id: 'cat-audio', name: 'Audio', emoji: '🎛️', color: '#7C8B76' },
+        { id: 'cat-design', name: 'Design', emoji: '🖌️', color: '#7C8B76' },
+        { id: 'cat-automation', name: 'Automation', emoji: '⚙️', color: '#7C8B76' }
+    ];
+
+    // State
+    let categories = [];
+    let articles = [];
+    let currentCategoryId = null;
+    let currentArticleId = null;
+    let editingArticleId = null;
+    let editingCategoryId = null;
     let deleteAction = null;
 
-    // ---- DOM References ----
+    // DOM Elements
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
 
-    const pageHome = $('#page-home');
-    const pageDetail = $('#page-detail');
-    const topicsGrid = $('#topics-grid');
-    const emptyState = $('#empty-state');
-    const emptyEntries = $('#empty-entries');
-    const entriesList = $('#entries-list');
-    const searchInput = $('#search-input');
-    const totalTopicsEl = $('#total-topics');
-    const totalEntriesEl = $('#total-entries');
+    const viewHome = $('#view-home');
+    const viewCategoryArticles = $('#view-category-articles');
+    const viewArticleDetail = $('#view-article-detail');
 
-    const modalTopic = $('#modal-topic');
-    const modalEntry = $('#modal-entry');
+    const categoriesGrid = $('#categories-grid');
+    const articlesGrid = $('#articles-grid');
+    const emptyArticles = $('#empty-articles');
+    const searchCatInput = $('#search-cat-input');
+
+    const modalArticle = $('#modal-article');
     const modalConfirm = $('#modal-confirm');
+    const modalEditCat = $('#modal-edit-cat');
+    const modalCatManage = $('#modal-cat-manage');
 
-    // ---- Utility ----
+    // Utility
     function formatDate(ts) {
+        if (!ts) ts = Date.now();
         const d = new Date(ts);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
+        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     }
 
     function escapeHtml(str) {
+        if (!str) return '';
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
     }
 
-    function renderMarkdown(text) {
-        let html = escapeHtml(text);
+    function renderMarkdown(content) {
+        if (!content) return '';
+        let html = escapeHtml(content);
+        // Code block
         html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        // Inline code
         html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-        html = html.replace(/^- (.+)$/gm, '• $1');
-        return html;
+        // Bold
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        // Italic
+        html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        // Headers
+        html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+        html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+        html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+        // Line breaks to paragraphs
+        const paragraphs = html.split(/\n\n+/);
+        return paragraphs.map(p => {
+            if (p.startsWith('<h') || p.startsWith('<pre')) return p;
+            return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+        }).join('');
     }
 
-    // ---- Toast ----
-    function showToast(message, type = 'success') {
+    function showToast(msg) {
         const container = $('#toast-container');
         const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.innerHTML = `
-            <span>${type === 'success' ? '✅' : '❌'}</span>
-            <span>${escapeHtml(message)}</span>
-        `;
+        toast.className = 'toast';
+        toast.textContent = msg;
         container.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add('toast-out');
-            toast.addEventListener('animationend', () => toast.remove());
-        }, 2500);
+        setTimeout(() => toast.remove(), 2500);
     }
 
-    // ---- Loading overlay ----
-    function setLoading(show) {
-        let loader = $('#global-loader');
-        if (show) {
-            if (!loader) {
-                loader = document.createElement('div');
-                loader.id = 'global-loader';
-                loader.innerHTML = `
-                    <div style="
-                        position:fixed;inset:0;z-index:3000;
-                        display:flex;align-items:center;justify-content:center;
-                        background:rgba(10,10,26,0.6);backdrop-filter:blur(4px);
-                    ">
-                        <div style="
-                            display:flex;flex-direction:column;align-items:center;gap:1rem;
-                            padding:2rem 3rem;background:rgba(18,18,42,0.95);
-                            border:1px solid rgba(255,255,255,0.08);border-radius:16px;
-                            box-shadow:0 20px 60px rgba(0,0,0,0.4);
-                        ">
-                            <div class="spinner" style="
-                                width:36px;height:36px;border:3px solid rgba(108,92,231,0.2);
-                                border-top-color:#6C5CE7;border-radius:50%;
-                                animation:spin 0.8s linear infinite;
-                            "></div>
-                            <span style="color:#8888aa;font-size:0.9rem;">Đang tải...</span>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(loader);
-                // Add spin keyframe if not exists
-                if (!document.getElementById('spin-style')) {
-                    const style = document.createElement('style');
-                    style.id = 'spin-style';
-                    style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
-                    document.head.appendChild(style);
-                }
-            }
-            loader.style.display = 'block';
-        } else {
-            if (loader) loader.style.display = 'none';
-        }
-    }
-
-    // ---- Modal Helpers ----
-    function openModal(modal) {
-        modal.classList.add('show');
-        setTimeout(() => {
-            const input = modal.querySelector('input[type="text"], textarea');
-            if (input) input.focus();
-        }, 100);
-    }
-
-    function closeModal(modal) {
-        modal.classList.remove('show');
-    }
-
-    $$('[data-close]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const modalId = btn.getAttribute('data-close');
-            closeModal($(`#${modalId}`));
-        });
-    });
-
-    [modalTopic, modalEntry, modalConfirm].forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal(modal);
-        });
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            [modalTopic, modalEntry, modalConfirm].forEach(closeModal);
-        }
-    });
-
-    // ---- Page Navigation ----
-    function showPage(pageId) {
-        $$('.page').forEach(p => p.classList.remove('active'));
-        const page = $(`#${pageId}`);
-        page.classList.remove('active');
-        void page.offsetWidth;
-        page.classList.add('active');
+    // Navigation Switcher
+    function showView(viewId) {
+        [viewHome, viewCategoryArticles, viewArticleDetail].forEach(v => v.classList.remove('active'));
+        $(`#${viewId}`).classList.add('active');
         window.scrollTo(0, 0);
     }
 
     // ============================================================
-    //  SUPABASE DATA OPERATIONS
+    //  SUPABASE / LOCAL STORAGE DATA
     // ============================================================
 
-    // ---- Fetch all topics with entry counts ----
-    async function fetchTopics() {
-        const { data: topicsData, error } = await supabase
-            .from('topics')
-            .select('*, entries(count)')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Lỗi tải chủ đề:', error);
-            showToast('Lỗi kết nối database!', 'error');
-            return;
-        }
-
-        topics = topicsData.map(t => ({
-            ...t,
-            entryCount: t.entries?.[0]?.count ?? 0
-        }));
+    function getLocalCategories() {
+        try {
+            const raw = localStorage.getItem('emir_categories');
+            return raw ? JSON.parse(raw) : DEFAULT_CATEGORIES;
+        } catch { return DEFAULT_CATEGORIES; }
     }
 
-    // ---- Fetch entries for a topic ----
-    async function fetchEntries(topicId) {
-        const { data: entries, error } = await supabase
-            .from('entries')
-            .select('*')
-            .eq('topic_id', topicId)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Lỗi tải kiến thức:', error);
-            showToast('Lỗi tải kiến thức!', 'error');
-            return [];
-        }
-
-        return entries || [];
+    function saveLocalCategories(cats) {
+        try { localStorage.setItem('emir_categories', JSON.stringify(cats)); } catch {}
     }
 
-    // ============================================================
-    //  RENDER: Home Page
-    // ============================================================
+    function getLocalArticles() {
+        try {
+            const raw = localStorage.getItem('emir_articles');
+            return raw ? JSON.parse(raw) : [];
+        } catch { return []; }
+    }
 
-    function renderTopics(filter = '') {
-        const filtered = topics.filter(t =>
-            t.name.toLowerCase().includes(filter.toLowerCase())
-        );
+    function saveLocalArticles(arts) {
+        try { localStorage.setItem('emir_articles', JSON.stringify(arts)); } catch {}
+    }
 
-        // Stats
-        totalTopicsEl.textContent = topics.length;
-        const totalEntries = topics.reduce((sum, t) => sum + (t.entryCount || 0), 0);
-        totalEntriesEl.textContent = totalEntries;
+    async function fetchAllData() {
+        categories = getLocalCategories();
+        articles = getLocalArticles();
 
-        if (filtered.length === 0 && filter === '') {
-            topicsGrid.innerHTML = '';
-            emptyState.style.display = 'block';
-            return;
+        try {
+            const { data: catData, error: catErr } = await supabase.from('topics').select('*');
+            if (!catErr && catData && catData.length > 0) {
+                // Merge with default categories
+                const map = new Map();
+                DEFAULT_CATEGORIES.forEach(c => map.set(c.name.toLowerCase(), c));
+                catData.forEach(c => map.set(c.name.toLowerCase(), c));
+                categories = Array.from(map.values());
+                saveLocalCategories(categories);
+            }
+
+            const { data: artData, error: artErr } = await supabase.from('entries').select('*');
+            if (!artErr && artData && artData.length > 0) {
+                articles = artData;
+                saveLocalArticles(articles);
+            }
+        } catch (e) {
+            console.warn('Supabase fetch exception, using local fallback:', e);
         }
-
-        emptyState.style.display = 'none';
-
-        if (filtered.length === 0) {
-            topicsGrid.innerHTML = `
-                <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);">
-                    <p style="font-size:2rem;margin-bottom:0.5rem;">🔍</p>
-                    <p>Không tìm thấy kết quả cho "${escapeHtml(filter)}"</p>
-                </div>
-            `;
-            return;
-        }
-
-        topicsGrid.innerHTML = filtered.map((topic, i) => `
-            <div class="topic-card" data-id="${topic.id}" style="--card-color:${topic.color || '#6C5CE7'};animation-delay:${i * 0.05}s">
-                <span class="card-emoji">${topic.emoji || '📖'}</span>
-                <h3 class="card-title">${escapeHtml(topic.name)}</h3>
-                <div class="card-meta">
-                    <span class="card-count">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
-                        ${topic.entryCount || 0} bài viết
-                    </span>
-                    <span class="card-date">${formatDate(topic.created_at)}</span>
-                </div>
-            </div>
-        `).join('');
-
-        topicsGrid.querySelectorAll('.topic-card').forEach(card => {
-            card.addEventListener('click', () => openDetailPage(card.dataset.id));
-        });
     }
 
     // ============================================================
-    //  RENDER: Detail Page
+    //  SCREEN 1: HOME — CATEGORY PILL BUTTONS (WITH EDIT ACTIONS)
     // ============================================================
 
-    async function openDetailPage(topicId) {
-        currentTopicId = topicId;
-        const topic = topics.find(t => t.id === topicId);
-        if (!topic) return;
-
-        $('#detail-emoji').textContent = topic.emoji || '📖';
-        $('#detail-title').textContent = topic.name;
-        document.title = `${topic.emoji || '📖'} ${topic.name} — Kho Tàng Kiến Thức`;
-
-        showPage('page-detail');
-        setLoading(true);
-
-        const entries = await fetchEntries(topicId);
-        renderEntriesList(entries);
-
-        setLoading(false);
-    }
-
-    function renderEntriesList(entries) {
-        if (!entries || entries.length === 0) {
-            entriesList.innerHTML = '';
-            emptyEntries.style.display = 'block';
-            return;
-        }
-
-        emptyEntries.style.display = 'none';
-
-        entriesList.innerHTML = entries.map((entry, i) => {
-            const tags = (entry.tags || []).map(tag =>
-                `<span class="entry-tag">#${escapeHtml(tag)}</span>`
-            ).join('');
-
+    function renderCategoryGrid() {
+        categoriesGrid.innerHTML = categories.map(cat => {
+            const count = articles.filter(a => String(a.topic_id) === String(cat.id) || String(a.category_id) === String(cat.id) || a.category_name === cat.name).length;
             return `
-                <article class="entry-card" data-id="${entry.id}" style="animation-delay:${i * 0.05}s">
-                    <div class="entry-header">
-                        <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
-                        <div class="entry-actions">
-                            <button class="btn-icon btn-edit-entry" title="Sửa" data-id="${entry.id}">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
-                                </svg>
-                            </button>
-                            <button class="btn-icon btn-danger btn-delete-entry" title="Xóa" data-id="${entry.id}">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="entry-content">${renderMarkdown(entry.content)}</div>
-                    <div class="entry-footer">
-                        ${tags}
-                        <span class="entry-date">${formatDate(entry.created_at)}</span>
-                    </div>
-                </article>
+                <button class="cat-pill-btn" data-id="${cat.id}">
+                    <div class="cat-icon-circle">${cat.emoji || '📖'}</div>
+                    <span>${escapeHtml(cat.name)}</span>
+                    ${count > 0 ? `<span style="font-size:0.75rem;opacity:0.6;font-weight:600;">(${count})</span>` : ''}
+                </button>
             `;
         }).join('');
 
-        // Cache entries for editing
-        entriesList._entries = entries;
-
-        entriesList.querySelectorAll('.btn-edit-entry').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openEditEntryModal(btn.dataset.id);
-            });
-        });
-
-        entriesList.querySelectorAll('.btn-delete-entry').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                confirmDeleteEntry(btn.dataset.id);
+        categoriesGrid.querySelectorAll('.cat-pill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                openCategoryView(btn.dataset.id);
             });
         });
     }
 
     // ============================================================
-    //  TOPIC CRUD (Supabase)
+    //  SCREEN 2: CATEGORY ARTICLES LIST VIEW
     // ============================================================
 
-    // Emoji picker
-    $$('.emoji-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            $$('.emoji-option').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            $('#topic-emoji-value').value = btn.dataset.emoji;
-        });
-    });
-    document.querySelector('.emoji-option')?.classList.add('selected');
+    function openCategoryView(catId) {
+        currentCategoryId = catId;
+        const cat = categories.find(c => String(c.id) === String(catId)) || { name: 'Chủ đề', emoji: '📖' };
 
-    // Color picker
-    $$('.color-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            $$('.color-option').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            $('#topic-color-value').value = btn.dataset.color;
-        });
-    });
-    document.querySelector('.color-option')?.classList.add('selected');
+        $('#cat-badge-emoji').textContent = cat.emoji || '📖';
+        $('#cat-title-name').textContent = cat.name;
 
-    function openAddTopicModal() {
-        editingTopicId = null;
-        $('#modal-topic-title').textContent = 'Thêm chủ đề mới';
-        $('#topic-name').value = '';
-        $$('.emoji-option').forEach(b => b.classList.remove('selected'));
-        document.querySelector('.emoji-option')?.classList.add('selected');
-        $('#topic-emoji-value').value = '📖';
-        $$('.color-option').forEach(b => b.classList.remove('selected'));
-        document.querySelector('.color-option')?.classList.add('selected');
-        $('#topic-color-value').value = '#6C5CE7';
-        openModal(modalTopic);
+        renderCategoryArticles();
+        showView('view-category-articles');
     }
 
-    function openEditTopicModal() {
-        const topic = topics.find(t => t.id === currentTopicId);
-        if (!topic) return;
-
-        editingTopicId = currentTopicId;
-        $('#modal-topic-title').textContent = 'Sửa chủ đề';
-        $('#topic-name').value = topic.name;
-        $$('.emoji-option').forEach(b => {
-            b.classList.toggle('selected', b.dataset.emoji === topic.emoji);
+    function renderCategoryArticles(filter = '') {
+        const cat = categories.find(c => String(c.id) === String(currentCategoryId));
+        const filtered = articles.filter(a => {
+            const matchesCat = String(a.topic_id) === String(currentCategoryId) || String(a.category_id) === String(currentCategoryId) || (cat && a.category_name === cat.name);
+            const matchesFilter = !filter || a.title.toLowerCase().includes(filter.toLowerCase()) || (a.content && a.content.toLowerCase().includes(filter.toLowerCase()));
+            return matchesCat && matchesFilter;
         });
-        $('#topic-emoji-value').value = topic.emoji || '📖';
-        $$('.color-option').forEach(b => {
-            b.classList.toggle('selected', b.dataset.color === topic.color);
-        });
-        $('#topic-color-value').value = topic.color || '#6C5CE7';
-        openModal(modalTopic);
-    }
 
-    async function saveTopic() {
-        const name = $('#topic-name').value.trim();
-        if (!name) {
-            showToast('Vui lòng nhập tên chủ đề', 'error');
+        if (filtered.length === 0) {
+            articlesGrid.innerHTML = '';
+            emptyArticles.style.display = 'block';
             return;
         }
 
-        const emoji = $('#topic-emoji-value').value;
-        const color = $('#topic-color-value').value;
+        emptyArticles.style.display = 'none';
+        articlesGrid.innerHTML = filtered.map(art => {
+            const tags = Array.isArray(art.tags) ? art.tags : (art.tags ? art.tags.split(',') : []);
+            const excerpt = art.content ? art.content.replace(/[#*`]/g, '').slice(0, 100) + '...' : 'Không có xem trước';
+            return `
+                <div class="article-card" data-id="${art.id}">
+                    <div class="card-top-meta">
+                        <span>📝 Bài viết</span>
+                        <span>${formatDate(art.created_at)}</span>
+                    </div>
+                    <h3 class="article-card-title">${escapeHtml(art.title)}</h3>
+                    <p class="article-card-excerpt">${escapeHtml(excerpt)}</p>
+                    ${tags.length ? `
+                        <div class="article-card-tags">
+                            ${tags.map(t => `<span class="tag-chip">${escapeHtml(t.trim())}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
 
-        setLoading(true);
+        articlesGrid.querySelectorAll('.article-card').forEach(card => {
+            card.addEventListener('click', () => {
+                openArticleDetailView(card.dataset.id);
+            });
+        });
+    }
 
-        if (editingTopicId) {
-            // UPDATE
-            const { error } = await supabase
-                .from('topics')
-                .update({ name, emoji, color })
-                .eq('id', editingTopicId);
+    // ============================================================
+    //  SCREEN 3: FULL ARTICLE READER VIEW
+    // ============================================================
 
-            if (error) {
-                console.error('Lỗi cập nhật:', error);
-                showToast('Lỗi cập nhật chủ đề!', 'error');
-                setLoading(false);
-                return;
-            }
-            showToast('Đã cập nhật chủ đề!');
-            $('#detail-emoji').textContent = emoji;
-            $('#detail-title').textContent = name;
+    function openArticleDetailView(artId) {
+        currentArticleId = artId;
+        const art = articles.find(a => String(a.id) === String(artId));
+        if (!art) return;
+
+        const cat = categories.find(c => String(c.id) === String(art.topic_id) || String(c.id) === String(art.category_id) || c.name === art.category_name) || { name: 'Chủ đề', emoji: '📖' };
+
+        $('#reader-cat-badge').textContent = `${cat.emoji || '📖'} ${cat.name}`;
+        $('#reader-date').textContent = formatDate(art.created_at);
+        $('#reader-title').textContent = art.title;
+
+        // Tags
+        const tags = Array.isArray(art.tags) ? art.tags : (art.tags ? art.tags.split(',') : []);
+        const tagsRow = $('#reader-tags');
+        if (tags.length) {
+            tagsRow.style.display = 'flex';
+            tagsRow.innerHTML = tags.map(t => `<span class="tag-chip">${escapeHtml(t.trim())}</span>`).join('');
         } else {
-            // INSERT
-            const { error } = await supabase
-                .from('topics')
-                .insert([{ name, emoji, color }]);
-
-            if (error) {
-                console.error('Lỗi thêm:', error);
-                showToast('Lỗi thêm chủ đề!', 'error');
-                setLoading(false);
-                return;
-            }
-            showToast('Đã thêm chủ đề mới!');
+            tagsRow.style.display = 'none';
         }
 
-        await fetchTopics();
-        renderTopics(searchInput.value);
-        closeModal(modalTopic);
-        setLoading(false);
-    }
+        // Full Rendered Content
+        $('#reader-content').innerHTML = renderMarkdown(art.content || 'Nội dung bài viết trống.');
 
-    function confirmDeleteTopic() {
-        const topic = topics.find(t => t.id === currentTopicId);
-        if (!topic) return;
-
-        $('#confirm-message').textContent = `Bạn có chắc muốn xóa chủ đề "${topic.name}" và tất cả kiến thức bên trong?`;
-        deleteAction = async () => {
-            setLoading(true);
-            const { error } = await supabase
-                .from('topics')
-                .delete()
-                .eq('id', currentTopicId);
-
-            if (error) {
-                console.error('Lỗi xóa:', error);
-                showToast('Lỗi xóa chủ đề!', 'error');
-                setLoading(false);
-                return;
-            }
-
-            showToast('Đã xóa chủ đề!');
-            document.title = '📚 Kho Tàng Kiến Thức';
-            await fetchTopics();
-            showPage('page-home');
-            renderTopics(searchInput.value);
-            setLoading(false);
-        };
-        openModal(modalConfirm);
+        showView('view-article-detail');
     }
 
     // ============================================================
-    //  ENTRY CRUD (Supabase)
+    //  MODAL & POST CREATION LOGIC
     // ============================================================
 
-    function openAddEntryModal() {
-        editingEntryId = null;
-        $('#modal-entry-title').textContent = 'Thêm kiến thức mới';
-        $('#entry-title').value = '';
-        $('#entry-content').value = '';
-        $('#entry-tags').value = '';
-        openModal(modalEntry);
+    function openAddArticleModal(preSelectedCatId = null) {
+        editingArticleId = null;
+        $('#modal-article-title').textContent = 'Tạo bài viết mới';
+        $('#post-title').value = '';
+        $('#post-content').value = '';
+        $('#post-tags').value = '';
+        $('#new-cat-box').style.display = 'none';
+        $('#new-cat-name').value = '';
+
+        // Populate Categories select
+        const select = $('#post-category-select');
+        const targetSelected = preSelectedCatId || currentCategoryId;
+        select.innerHTML = categories.map(c => `
+            <option value="${c.id}" ${String(c.id) === String(targetSelected) ? 'selected' : ''}>
+                ${c.emoji || '📖'} ${escapeHtml(c.name)}
+            </option>
+        `).join('');
+
+        openModal(modalArticle);
     }
 
-    function openEditEntryModal(entryId) {
-        const entries = entriesList._entries || [];
-        const entry = entries.find(e => e.id === entryId);
-        if (!entry) return;
+    function openEditArticleModal(artId) {
+        const art = articles.find(a => String(a.id) === String(artId));
+        if (!art) return;
 
-        editingEntryId = entryId;
-        $('#modal-entry-title').textContent = 'Sửa kiến thức';
-        $('#entry-title').value = entry.title;
-        $('#entry-content').value = entry.content;
-        $('#entry-tags').value = (entry.tags || []).join(', ');
-        openModal(modalEntry);
+        editingArticleId = artId;
+        $('#modal-article-title').textContent = 'Sửa bài viết';
+        $('#post-title').value = art.title || '';
+        $('#post-content').value = art.content || '';
+        $('#post-tags').value = Array.isArray(art.tags) ? art.tags.join(', ') : (art.tags || '');
+        $('#new-cat-box').style.display = 'none';
+
+        const select = $('#post-category-select');
+        select.innerHTML = categories.map(c => `
+            <option value="${c.id}" ${String(c.id) === String(art.topic_id || art.category_id) ? 'selected' : ''}>
+                ${c.emoji || '📖'} ${escapeHtml(c.name)}
+            </option>
+        `).join('');
+
+        openModal(modalArticle);
     }
 
-    async function saveEntry() {
-        const title = $('#entry-title').value.trim();
-        const content = $('#entry-content').value.trim();
-        const tagsRaw = $('#entry-tags').value.trim();
+    async function saveArticle() {
+        const title = $('#post-title').value.trim();
+        const content = $('#post-content').value.trim();
+        const tagsInput = $('#post-tags').value.trim();
+        const isNewCat = $('#new-cat-box').style.display === 'block';
 
         if (!title) {
-            showToast('Vui lòng nhập tiêu đề', 'error');
-            return;
-        }
-        if (!content) {
-            showToast('Vui lòng nhập nội dung', 'error');
+            showToast('Vui lòng nhập tiêu đề bài viết!');
             return;
         }
 
-        const tags = tagsRaw
-            ? tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0)
-            : [];
+        let catId = $('#post-category-select').value;
+        let catName = '';
 
-        setLoading(true);
-
-        if (editingEntryId) {
-            // UPDATE
-            const { error } = await supabase
-                .from('entries')
-                .update({ title, content, tags })
-                .eq('id', editingEntryId);
-
-            if (error) {
-                console.error('Lỗi cập nhật:', error);
-                showToast('Lỗi cập nhật kiến thức!', 'error');
-                setLoading(false);
+        if (!catId && !isNewCat) {
+            if (categories.length > 0) {
+                catId = categories[0].id;
+            } else {
+                showToast('Vui lòng chọn hoặc thêm một thể loại mới!');
+                $('#new-cat-box').style.display = 'block';
                 return;
             }
-            showToast('Đã cập nhật kiến thức!');
+        }
+
+        // Handled New Category Creation
+        if (isNewCat) {
+            const newCatName = $('#new-cat-name').value.trim();
+            const newCatEmoji = $('#new-cat-emoji').value || '📖';
+
+            if (!newCatName) {
+                showToast('Vui lòng nhập tên thể loại mới!');
+                return;
+            }
+
+            catId = 'cat-' + Date.now();
+            catName = newCatName;
+
+            const newCat = {
+                id: catId,
+                name: newCatName,
+                emoji: newCatEmoji,
+                color: '#7C8B76',
+                created_at: new Date().toISOString()
+            };
+
+            categories.push(newCat);
+            saveLocalCategories(categories);
+
+            try {
+                const { data } = await supabase.from('topics').insert([{
+                    name: newCatName,
+                    emoji: newCatEmoji,
+                    color: '#7C8B76'
+                }]).select();
+                if (data && data[0]) {
+                    newCat.id = data[0].id;
+                    catId = data[0].id;
+                    saveLocalCategories(categories);
+                }
+            } catch (e) { console.warn('Supabase insert topic exception:', e); }
         } else {
-            // INSERT
-            const { error } = await supabase
-                .from('entries')
-                .insert([{ topic_id: currentTopicId, title, content, tags }]);
-
-            if (error) {
-                console.error('Lỗi thêm:', error);
-                showToast('Lỗi thêm kiến thức!', 'error');
-                setLoading(false);
-                return;
-            }
-            showToast('Đã thêm kiến thức mới!');
+            const selectedCat = categories.find(c => String(c.id) === String(catId));
+            if (selectedCat) catName = selectedCat.name;
         }
 
-        // Refresh entries
-        const entries = await fetchEntries(currentTopicId);
-        renderEntriesList(entries);
+        const tagsArray = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
 
-        // Refresh topic counts
-        await fetchTopics();
-        renderTopics(searchInput.value);
+        if (editingArticleId) {
+            // Update Article
+            const idx = articles.findIndex(a => String(a.id) === String(editingArticleId));
+            if (idx !== -1) {
+                articles[idx].title = title;
+                articles[idx].content = content;
+                articles[idx].tags = tagsArray;
+                articles[idx].topic_id = catId;
+                articles[idx].category_id = catId;
+                articles[idx].category_name = catName;
+                saveLocalArticles(articles);
 
-        closeModal(modalEntry);
-        setLoading(false);
-    }
-
-    function confirmDeleteEntry(entryId) {
-        const entries = entriesList._entries || [];
-        const entry = entries.find(e => e.id === entryId);
-        if (!entry) return;
-
-        $('#confirm-message').textContent = `Bạn có chắc muốn xóa kiến thức "${entry.title}"?`;
-        deleteAction = async () => {
-            setLoading(true);
-            const { error } = await supabase
-                .from('entries')
-                .delete()
-                .eq('id', entryId);
-
-            if (error) {
-                console.error('Lỗi xóa:', error);
-                showToast('Lỗi xóa kiến thức!', 'error');
-                setLoading(false);
-                return;
+                try {
+                    await supabase.from('entries').update({
+                        title, content, tags: tagsArray, topic_id: catId
+                    }).eq('id', editingArticleId);
+                } catch (e) {}
             }
+            showToast('Đã cập nhật bài viết thành công!');
+        } else {
+            // Create New Article
+            const newArt = {
+                id: 'art-' + Date.now(),
+                topic_id: catId,
+                category_id: catId,
+                category_name: catName,
+                title,
+                content,
+                tags: tagsArray,
+                created_at: new Date().toISOString()
+            };
 
-            showToast('Đã xóa kiến thức!');
-            const entriesData = await fetchEntries(currentTopicId);
-            renderEntriesList(entriesData);
-            await fetchTopics();
-            renderTopics(searchInput.value);
-            setLoading(false);
-        };
-        openModal(modalConfirm);
+            articles.unshift(newArt);
+            saveLocalArticles(articles);
+
+            try {
+                const { data } = await supabase.from('entries').insert([{
+                    topic_id: catId,
+                    title, content, tags: tagsArray
+                }]).select();
+                if (data && data[0]) {
+                    newArt.id = data[0].id;
+                    saveLocalArticles(articles);
+                }
+            } catch (e) {}
+
+            showToast('Đã tạo bài viết mới thành công!');
+        }
+
+        closeModal(modalArticle);
+        renderCategoryGrid();
+
+        if (String(currentCategoryId) === String(catId)) {
+            renderCategoryArticles();
+        }
+
+        if (editingArticleId) {
+            openArticleDetailView(editingArticleId);
+        } else {
+            openCategoryView(catId);
+        }
+    }
+
+    async function deleteCurrentArticle() {
+        if (!currentArticleId) return;
+
+        articles = articles.filter(a => String(a.id) !== String(currentArticleId));
+        saveLocalArticles(articles);
+
+        try {
+            await supabase.from('entries').delete().eq('id', currentArticleId);
+        } catch (e) {}
+
+        showToast('Đã xóa bài viết thành công!');
+        renderCategoryGrid();
+        openCategoryView(currentCategoryId);
+    }
+
+    async function deleteCurrentCategory() {
+        const targetCatId = editingCategoryId || currentCategoryId;
+        const cat = categories.find(c => String(c.id) === String(targetCatId));
+        const catName = cat ? cat.name : $('#cat-title-name').textContent;
+        const actualId = cat ? cat.id : targetCatId;
+
+        categories = categories.filter(c => String(c.id) !== String(actualId) && c.name !== catName);
+        saveLocalCategories(categories);
+
+        articles = articles.filter(a => String(a.topic_id) !== String(actualId) && String(a.category_id) !== String(actualId) && a.category_name !== catName);
+        saveLocalArticles(articles);
+
+        try {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId);
+            if (isUuid) {
+                await supabase.from('topics').delete().eq('id', actualId);
+                await supabase.from('entries').delete().eq('topic_id', actualId);
+            } else {
+                await supabase.from('topics').delete().eq('name', catName);
+            }
+        } catch (e) {}
+
+        showToast(`Đã xóa chủ đề "${catName}" thành công!`);
+        renderCategoryGrid();
+        showView('view-home');
     }
 
     // ============================================================
-    //  EVENT LISTENERS
+    //  CATEGORY MANAGEMENT & EDITING MODALS
     // ============================================================
 
-    $('#btn-add-topic').addEventListener('click', openAddTopicModal);
-    $('#btn-add-first').addEventListener('click', openAddTopicModal);
-    $('#btn-save-topic').addEventListener('click', saveTopic);
+    function openCategoryManageModal() {
+        const cat = categories.find(c => String(c.id) === String(currentCategoryId));
+        const titleName = cat ? cat.name : $('#cat-title-name').textContent;
+        $('#cat-manage-title').textContent = `Tùy chọn: ${titleName}`;
+        openModal(modalCatManage);
+    }
 
-    $('#btn-back').addEventListener('click', () => {
-        document.title = '📚 Kho Tàng Kiến Thức';
-        showPage('page-home');
-        renderTopics(searchInput.value);
+    function openEditCategoryModal(catId = null) {
+        editingCategoryId = catId || currentCategoryId;
+        const cat = categories.find(c => String(c.id) === String(editingCategoryId));
+        if (!cat) return;
+
+        $('#edit-cat-name').value = cat.name || '';
+        $('#edit-cat-emoji-value').value = cat.emoji || '📖';
+
+        const targetEmoji = cat.emoji || '📖';
+        $$('#edit-cat-emoji-picker .emoji-option').forEach(b => {
+            if (b.dataset.emoji === targetEmoji) {
+                b.classList.add('selected');
+            } else {
+                b.classList.remove('selected');
+            }
+        });
+
+        openModal(modalEditCat);
+    }
+
+    async function saveEditCategory() {
+        const newCatName = $('#edit-cat-name').value.trim();
+        const newCatEmoji = $('#edit-cat-emoji-value').value || '📖';
+
+        if (!newCatName) {
+            showToast('Vui lòng nhập tên chủ đề!');
+            return;
+        }
+
+        const targetCatId = editingCategoryId || currentCategoryId;
+        let idx = categories.findIndex(c => String(c.id) === String(targetCatId));
+
+        if (idx !== -1) {
+            const oldName = categories[idx].name;
+            categories[idx].name = newCatName;
+            categories[idx].emoji = newCatEmoji;
+            saveLocalCategories(categories);
+
+            // Update matching articles
+            articles.forEach(a => {
+                if (String(a.topic_id) === String(targetCatId) || String(a.category_id) === String(targetCatId) || a.category_name === oldName) {
+                    a.category_name = newCatName;
+                }
+            });
+            saveLocalArticles(articles);
+
+            // Update Supabase
+            try {
+                const catObj = categories[idx];
+                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catObj.id);
+                if (isUuid) {
+                    await supabase.from('topics').update({
+                        name: newCatName,
+                        emoji: newCatEmoji
+                    }).eq('id', catObj.id);
+                } else {
+                    // Update by name or create record
+                    const { data: dbCats } = await supabase.from('topics').select('id').eq('name', oldName);
+                    if (dbCats && dbCats.length > 0) {
+                        await supabase.from('topics').update({
+                            name: newCatName,
+                            emoji: newCatEmoji
+                        }).eq('id', dbCats[0].id);
+                    } else {
+                        const { data: newDbCats } = await supabase.from('topics').insert([{
+                            name: newCatName,
+                            emoji: newCatEmoji,
+                            color: '#7C8B76'
+                        }]).select();
+                        if (newDbCats && newDbCats[0]) {
+                            categories[idx].id = newDbCats[0].id;
+                            saveLocalCategories(categories);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Supabase update topic exception:', e);
+            }
+        }
+
+        // Refresh UI
+        if (String(currentCategoryId) === String(targetCatId)) {
+            $('#cat-badge-emoji').textContent = newCatEmoji;
+            $('#cat-title-name').textContent = newCatName;
+            renderCategoryArticles();
+        }
+
+        renderCategoryGrid();
+        showToast('Cập nhật chủ đề thành công!');
+        closeModal(modalEditCat);
+    }
+
+    // Modal Helpers
+    function openModal(modalOrId) {
+        const modal = typeof modalOrId === 'string' ? $(`#${modalOrId}`) : modalOrId;
+        if (modal) {
+            modal.classList.add('show');
+            setTimeout(() => {
+                const inp = modal.querySelector('input[type="text"], textarea');
+                if (inp) inp.focus();
+            }, 100);
+        }
+    }
+
+    function closeModal(modalOrId) {
+        const modal = typeof modalOrId === 'string' ? $(`#${modalOrId}`) : modalOrId;
+        if (modal) modal.classList.remove('show');
+    }
+
+    $$('[data-close]').forEach(btn => {
+        btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close')));
     });
 
-    $('#btn-edit-topic').addEventListener('click', openEditTopicModal);
-    $('#btn-delete-topic').addEventListener('click', confirmDeleteTopic);
+    // Close modals on overlay background click
+    $$('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal(overlay);
+        });
+    });
 
-    $('#btn-add-entry').addEventListener('click', openAddEntryModal);
-    $('#btn-add-first-entry').addEventListener('click', openAddEntryModal);
-    $('#btn-save-entry').addEventListener('click', saveEntry);
+    // ============================================================
+    //  EVENT LISTENERS & BINDINGS
+    // ============================================================
 
-    $('#btn-confirm-delete').addEventListener('click', async () => {
-        if (deleteAction) {
-            await deleteAction();
-            deleteAction = null;
+    // Toggle new category box inside modal
+    $('#btn-toggle-new-cat')?.addEventListener('click', () => {
+        const box = $('#new-cat-box');
+        if (box) {
+            const isHidden = box.style.display === 'none';
+            box.style.display = isHidden ? 'block' : 'none';
+            if (isHidden) $('#new-cat-name')?.focus();
         }
+    });
+
+    // Emoji picker inside Add Article Modal
+    $$('#emoji-picker .emoji-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            $$('#emoji-picker .emoji-option').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            const hiddenVal = $('#new-cat-emoji');
+            if (hiddenVal) hiddenVal.value = btn.dataset.emoji;
+        });
+    });
+
+    // Emoji picker inside Edit Category Modal
+    $$('#edit-cat-emoji-picker .emoji-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            $$('#edit-cat-emoji-picker .emoji-option').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            const hiddenVal = $('#edit-cat-emoji-value');
+            if (hiddenVal) hiddenVal.value = btn.dataset.emoji;
+        });
+    });
+
+    // Home create post button
+    $('#btn-create-post')?.addEventListener('click', () => openAddArticleModal());
+    $('#btn-add-article-in-cat')?.addEventListener('click', () => openAddArticleModal(currentCategoryId));
+    $('#btn-add-first-article')?.addEventListener('click', () => openAddArticleModal(currentCategoryId));
+    $('#btn-save-article')?.addEventListener('click', saveArticle);
+
+    // Article actions inside Reader View
+    $('#btn-edit-current-article')?.addEventListener('click', () => openEditArticleModal(currentArticleId));
+    $('#btn-delete-current-article')?.addEventListener('click', () => {
+        if ($('#confirm-message')) $('#confirm-message').textContent = 'Bạn có chắc chắn muốn xóa bài viết này?';
+        deleteAction = deleteCurrentArticle;
+        openModal(modalConfirm);
+    });
+
+    // Category Header Title click event delegation (Opens manage options modal)
+    document.addEventListener('click', (e) => {
+        const titleBtn = e.target.closest('#cat-header-title-btn');
+        if (titleBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            openCategoryManageModal();
+        }
+    });
+
+    // Choices inside Category Manage Modal
+    $('#btn-choice-edit-cat')?.addEventListener('click', () => {
+        closeModal(modalCatManage);
+        openEditCategoryModal(currentCategoryId);
+    });
+
+    $('#btn-choice-delete-cat')?.addEventListener('click', () => {
+        closeModal(modalCatManage);
+        const cat = categories.find(c => String(c.id) === String(currentCategoryId));
+        const catName = cat ? cat.name : $('#cat-title-name').textContent;
+        if ($('#confirm-message')) {
+            $('#confirm-message').textContent = `Bạn có chắc chắn muốn xóa chủ đề "${catName}" và tất cả bài viết thuộc về nó?`;
+        }
+        deleteAction = deleteCurrentCategory;
+        openModal(modalConfirm);
+    });
+
+    // Save edited category
+    $('#btn-save-edit-cat')?.addEventListener('click', saveEditCategory);
+
+    // Delete category inside modal
+    $('#btn-delete-cat-in-modal')?.addEventListener('click', () => {
+        closeModal(modalEditCat);
+        const cat = categories.find(c => String(c.id) === String(editingCategoryId || currentCategoryId));
+        const catName = cat ? cat.name : $('#cat-title-name').textContent;
+        if ($('#confirm-message')) {
+            $('#confirm-message').textContent = `Bạn có chắc chắn muốn xóa chủ đề "${catName}" và tất cả bài viết thuộc về nó?`;
+        }
+        deleteAction = deleteCurrentCategory;
+        openModal(modalConfirm);
+    });
+
+    // Confirm Delete button
+    $('#btn-confirm-delete')?.addEventListener('click', async () => {
+        if (deleteAction) { await deleteAction(); deleteAction = null; }
         closeModal(modalConfirm);
     });
 
-    // Search
+    // Navigation Back buttons
+    $('#btn-back-home')?.addEventListener('click', () => {
+        renderCategoryGrid();
+        showView('view-home');
+    });
+
+    $('#btn-back-cat-articles')?.addEventListener('click', () => {
+        openCategoryView(currentCategoryId);
+    });
+
+    // Search input inside Category list
     let searchDebounce = null;
-    searchInput.addEventListener('input', () => {
-        clearTimeout(searchDebounce);
-        searchDebounce = setTimeout(() => {
-            renderTopics(searchInput.value.trim());
-        }, 200);
-    });
-
-    // Keyboard shortcuts
-    modalTopic.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            saveTopic();
-        }
-    });
-
-    modalEntry.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.ctrlKey) {
-            e.preventDefault();
-            saveEntry();
-        }
-    });
+    if (searchCatInput) {
+        searchCatInput.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                renderCategoryArticles(searchCatInput.value.trim());
+            }, 200);
+        });
+    }
 
     // ============================================================
-    //  INIT — Load data from Supabase
+    //  INIT
     // ============================================================
 
     async function init() {
-        setLoading(true);
-        await fetchTopics();
-        renderTopics();
-        setLoading(false);
+        await fetchAllData();
+        renderCategoryGrid();
+        showView('view-home');
     }
 
     init();
