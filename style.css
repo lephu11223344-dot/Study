@@ -2603,12 +2603,46 @@ body {
     flex-direction: column;
     gap: 0.5rem;
     animation: fadeInView 0.25s ease;
+    transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-input-item.is-dragging {
+    opacity: 0.45;
+    box-shadow: 0 10px 24px rgba(30, 37, 43, 0.15);
+    border-color: var(--accent-sage);
+    transform: scale(0.98);
 }
 
 .card-input-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+}
+
+.card-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: grab;
+    user-select: none;
+}
+
+.card-drag-handle:active {
+    cursor: grabbing;
+}
+
+.drag-icon {
+    font-size: 1.1rem;
+    color: var(--text-sage);
+    letter-spacing: -2px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.card-drag-handle:hover .drag-icon {
+    opacity: 1;
+    color: var(--text-dark);
 }
 
 .card-input-label {

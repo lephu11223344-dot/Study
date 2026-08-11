@@ -892,9 +892,13 @@
     function createCardInputItem(value = '') {
         const item = document.createElement('div');
         item.className = 'card-input-item';
+        item.setAttribute('draggable', 'true');
         item.innerHTML = `
             <div class="card-input-header">
-                <span class="card-input-label">📦 Khung thẻ câu</span>
+                <div class="card-drag-handle" title="Bấm giữ và kéo để sắp xếp thứ tự khung">
+                    <span class="drag-icon">⋮⋮</span>
+                    <span class="card-input-label">📦 Khung thẻ câu</span>
+                </div>
                 <button type="button" class="btn-remove-card-item" title="Xóa khung này">✕ Xóa</button>
             </div>
             <textarea class="card-item-textarea" rows="2" placeholder="Nhập nội dung câu hoặc trích dẫn cho khung này...">${escapeHtml(value)}</textarea>
@@ -903,6 +907,45 @@
             item.remove();
         });
         return item;
+    }
+
+    function initCardDragAndDrop() {
+        const container = $('#card-inputs-list');
+        if (!container) return;
+
+        let draggedItem = null;
+
+        container.addEventListener('dragstart', (e) => {
+            const item = e.target.closest('.card-input-item');
+            if (item) {
+                draggedItem = item;
+                item.classList.add('is-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            }
+        });
+
+        container.addEventListener('dragend', (e) => {
+            const item = e.target.closest('.card-input-item');
+            if (item) {
+                item.classList.remove('is-dragging');
+            }
+            draggedItem = null;
+        });
+
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const targetItem = e.target.closest('.card-input-item');
+            if (targetItem && targetItem !== draggedItem) {
+                const rect = targetItem.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (e.clientY < midY) {
+                    container.insertBefore(draggedItem, targetItem);
+                } else {
+                    container.insertBefore(draggedItem, targetItem.nextSibling);
+                }
+            }
+        });
     }
 
     $('#btn-add-card-input')?.addEventListener('click', () => {
@@ -1701,6 +1744,7 @@
         showView('view-landing');
         renderLandingPage();
         setTimeout(updateNavPillPosition, 50);
+        initCardDragAndDrop();
 
         // Tải dữ liệu đám mây Supabase ở nền sau
         await fetchAllData();
