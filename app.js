@@ -93,20 +93,34 @@
         html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         // Italic
         html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-        // Blockquote
-        html = html.replace(/^&gt; (.*$)/gim, '<blockquote>$1</blockquote>');
+
+        // Custom Card Blocks: :::card Text ::: (Dedicated individual Quote Cards)
+        html = html.replace(/:::card\s*([\s\S]*?):::/gi, '<div class="sentence-quote-card"><span class="quote-card-icon">💬</span><div class="quote-card-text">$1</div></div>');
+
+        // Blockquotes -> Dedicated Quote Cards
+        html = html.replace(/^&gt; (.*$)/gim, '<div class="sentence-quote-card"><span class="quote-card-icon">💬</span><div class="quote-card-text">$1</div></div>');
+
         // Headers
         html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
         html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
         html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-        // Bullet list
-        html = html.replace(/^- (.*$)/gim, '<li>$1</li>');
-        // Numbered list
-        html = html.replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
+
+        // Bullet list items in same text box -> Grouped into ONE Single Card Frame Container
+        html = html.replace(/(?:^- .*(?:\r?\n|$))+/gm, (match) => {
+            const items = match.trim().split(/\r?\n/).map(line => line.replace(/^- /, '')).map(line => `<li>${line}</li>`).join('');
+            return `<div class="sentence-quote-card list-card-container"><ul class="article-bullet-list">${items}</ul></div>`;
+        });
+
+        // Numbered list items in same text box -> Grouped into ONE Single Card Frame Container
+        html = html.replace(/(?:^\d+\. .*(?:\r?\n|$))+/gm, (match) => {
+            const items = match.trim().split(/\r?\n/).map(line => line.replace(/^\d+\. /, '')).map(line => `<li>${line}</li>`).join('');
+            return `<div class="sentence-quote-card list-card-container"><ol class="article-num-list">${items}</ol></div>`;
+        });
+
         // Line breaks to paragraphs
         const paragraphs = html.split(/\n\n+/);
         return paragraphs.map(p => {
-            if (p.startsWith('<h') || p.startsWith('<pre') || p.startsWith('<block') || p.startsWith('<li')) return p;
+            if (p.startsWith('<h') || p.startsWith('<pre') || p.startsWith('<div')) return p;
             return `<p>${p.replace(/\n/g, '<br>')}</p>`;
         }).join('');
     }
@@ -875,6 +889,31 @@
     //  MODAL & POST CREATION LOGIC
     // ============================================================
 
+    function createCardInputItem(value = '') {
+        const item = document.createElement('div');
+        item.className = 'card-input-item';
+        item.innerHTML = `
+            <div class="card-input-header">
+                <span class="card-input-label">📦 Khung thẻ câu</span>
+                <button type="button" class="btn-remove-card-item" title="Xóa khung này">✕ Xóa</button>
+            </div>
+            <textarea class="card-item-textarea" rows="2" placeholder="Nhập nội dung câu hoặc trích dẫn cho khung này...">${escapeHtml(value)}</textarea>
+        `;
+        item.querySelector('.btn-remove-card-item').addEventListener('click', () => {
+            item.remove();
+        });
+        return item;
+    }
+
+    $('#btn-add-card-input')?.addEventListener('click', () => {
+        const container = $('#card-inputs-list');
+        if (container) {
+            const newItem = createCardInputItem('');
+            container.appendChild(newItem);
+            newItem.querySelector('textarea').focus();
+        }
+    });
+
     function openAddArticleModal(preSelectedCatId = null) {
         editingArticleId = null;
         $('#modal-article-title').textContent = 'Tạo bài viết mới';
@@ -883,6 +922,7 @@
         $('#post-tags').value = '';
         $('#new-cat-box').style.display = 'none';
         $('#new-cat-name').value = '';
+        if ($('#card-inputs-list')) $('#card-inputs-list').innerHTML = '';
 
         // Populate Categories select
         const select = $('#post-category-select');
@@ -903,9 +943,26 @@
         editingArticleId = artId;
         $('#modal-article-title').textContent = 'Sửa bài viết';
         $('#post-title').value = art.title || '';
-        $('#post-content').value = art.content || '';
+        
+        // Remove :::card blocks from main content textarea so they edit cleanly in card builder
+        let cleanMainContent = art.content || '';
+        const cardMatches = [...cleanMainContent.matchAll(/:::card\s*([\s\S]*?):::/gi)];
+        cleanMainContent = cleanMainContent.replace(/:::card\s*([\s\S]*?):::/gi, '').trim();
+
+        $('#post-content').value = cleanMainContent;
         $('#post-tags').value = Array.isArray(art.tags) ? art.tags.join(', ') : (art.tags || '');
         $('#new-cat-box').style.display = 'none';
+
+        if ($('#card-inputs-list')) {
+            const cardList = $('#card-inputs-list');
+            cardList.innerHTML = '';
+            if (cardMatches.length > 0) {
+                cardMatches.forEach(m => {
+                    const cardText = m[1].trim();
+                    cardList.appendChild(createCardInputItem(cardText));
+                });
+            }
+        }
 
         const select = $('#post-category-select');
         select.innerHTML = categories.map(c => `
@@ -919,9 +976,24 @@
 
     async function saveArticle() {
         const title = $('#post-title').value.trim();
-        const content = $('#post-content').value.trim();
+        let mainContent = $('#post-content').value.trim();
         const tagsInput = $('#post-tags').value.trim();
         const isNewCat = $('#new-cat-box').style.display === 'block';
+
+        // Gather all card inputs
+        const cardElements = $$('.card-item-textarea');
+        const cardTexts = [];
+        cardElements.forEach(ta => {
+            const val = ta.value.trim();
+            if (val) cardTexts.push(val);
+        });
+
+        if (cardTexts.length > 0) {
+            const cardBlocks = cardTexts.map(t => `:::card\n${t}\n:::`).join('\n\n');
+            mainContent = mainContent ? `${mainContent}\n\n${cardBlocks}` : cardBlocks;
+        }
+
+        const content = mainContent;
 
         if (!title) {
             showToast('Vui lòng nhập tiêu đề bài viết!');
@@ -1277,6 +1349,9 @@
                 break;
             case 'quote':
                 replacement = selectedText ? `> ${selectedText}` : '> Trích dẫn\n';
+                break;
+            case 'card':
+                replacement = selectedText ? `:::card\n${selectedText}\n:::` : ':::card\nNội dung câu trong khung thẻ...\n:::';
                 break;
             case 'code':
                 replacement = selectedText ? `\`\`\`\n${selectedText}\n\`\`\`` : '```\n// Code ở đây\n```';
